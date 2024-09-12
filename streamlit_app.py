@@ -84,6 +84,11 @@ def run_weighted_linear_regression(df, feature_weights):
     # Drop rows with NaN values (optional, depending on how you want to handle missing data)
     df = df.dropna()
 
+    # Check if the dataset is empty after processing
+    if df.empty:
+        st.error("Error: No valid data after processing. Please check your CSV file and ensure all columns contain numeric values.")
+        return
+
     # Separate features (X) and target (y) - assuming target is 'ProdA_sales_2023'
     X = df.drop(columns=['ProdA_sales_2023'])  # Exclude target column
     y = df['ProdA_sales_2023']  # Target column
@@ -95,6 +100,11 @@ def run_weighted_linear_regression(df, feature_weights):
 
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Check if there is enough data for training
+    if X_train.empty or X_test.empty:
+        st.error("Error: Not enough data to train the model. Please provide more valid rows.")
+        return
 
     # Initialize the linear regression model
     lr = LinearRegression()
