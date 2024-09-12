@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import StandardScaler
 
 # Set the title of the app
 st.title("⚕️ Pathways 💊")
@@ -72,7 +73,7 @@ def generate_csv_template():
     # Return the CSV as a string
     return combined_df.to_csv(index=False)
 
-# Function to run weighted linear regression
+# Function to run weighted linear regression with data inspection and scaling
 def run_weighted_linear_regression(df, feature_weights):
     # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
@@ -100,6 +101,10 @@ def run_weighted_linear_regression(df, feature_weights):
         st.error("Error: No valid data after processing. Please check your CSV file and ensure all columns contain numeric values.")
         return
 
+    # Display summary statistics for the data
+    st.write("Data Summary:")
+    st.dataframe(df.describe())
+
     # Separate features (X) and target (y) - assuming target is 'ProdA_sales_2023'
     X = df.drop(columns=['ProdA_sales_2023'])  # Exclude target column
     y = df['ProdA_sales_2023']  # Target column
@@ -109,8 +114,12 @@ def run_weighted_linear_regression(df, feature_weights):
         if feature in X.columns:
             X[feature] *= feature_weights[feature]
 
+    # Scale the features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
     # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
     # Check if there is enough data for training
     if X_train.empty or X_test.empty:
