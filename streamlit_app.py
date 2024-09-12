@@ -87,8 +87,9 @@ def run_weighted_linear_regression(df, feature_weights):
     # Remove dollar signs and commas from sales columns
     sales_columns = ['ProdA_sales_first12', 'competition_sales_first12', 'ProdA_sales_2022', 'competition_sales_2022', 'ProdA_sales_2023', 'Total 2022 and 2023', 'competition_sales_2023']
     for col in sales_columns:
+        # This line removes commas and dollar signs using regex
         df[col] = df[col].replace({'\$': '', ',': ''}, regex=True)
-    
+
     # Remove percentage signs and convert to numeric
     df['percentage_340B_adoption'] = df['percentage_340B_adoption'].str.replace('%', '').astype(float)
 
