@@ -87,7 +87,6 @@ def run_weighted_linear_regression(df, feature_weights):
     # Remove dollar signs and commas from sales columns
     sales_columns = ['ProdA_sales_first12', 'competition_sales_first12', 'ProdA_sales_2022', 'competition_sales_2022', 'ProdA_sales_2023', 'Total 2022 and 2023', 'competition_sales_2023']
     for col in sales_columns:
-        # This line removes commas and dollar signs using regex
         df[col] = df[col].replace({'\$': '', ',': ''}, regex=True)
 
     # Remove percentage signs and convert to numeric
@@ -104,6 +103,10 @@ def run_weighted_linear_regression(df, feature_weights):
     # Show columns with NaN values
     nan_columns = df.columns[df.isna().any()].tolist()
     st.write(f"Columns with NaN values after processing: {nan_columns}")
+
+    # Check rows with NaN values to inspect which rows are problematic
+    st.write("Rows with NaN values:")
+    st.dataframe(df[df.isna().any(axis=1)])
 
     # Drop rows with NaN values
     df = df.dropna()
@@ -200,4 +203,3 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
-
