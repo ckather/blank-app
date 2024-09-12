@@ -77,10 +77,6 @@ def run_weighted_linear_regression(df, feature_weights):
     # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
 
-    # Display the DataFrame before conversion for debugging
-    st.write("Original DataFrame (before any conversions):")
-    st.dataframe(df)
-
     # Replace "high", "medium", "low" with 3, 2, 1 respectively
     df = df.replace({"high": 3, "medium": 2, "low": 1})
 
@@ -95,18 +91,6 @@ def run_weighted_linear_regression(df, feature_weights):
     # Ensure all relevant columns are numeric
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # Display DataFrame after conversion for debugging
-    st.write("Processed DataFrame (after cleaning and numeric conversion):")
-    st.dataframe(df)
-
-    # Show columns with NaN values
-    nan_columns = df.columns[df.isna().any()].tolist()
-    st.write(f"Columns with NaN values after processing: {nan_columns}")
-
-    # Check rows with NaN values to inspect which rows are problematic
-    st.write("Rows with NaN values:")
-    st.dataframe(df[df.isna().any(axis=1)])
 
     # Drop rows with NaN values
     df = df.dropna()
@@ -146,10 +130,16 @@ def run_weighted_linear_regression(df, feature_weights):
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
 
-    # Output the coefficients, intercept, and RMSE
-    st.write("Linear Regression Coefficients:", lr.coef_)
-    st.write("Linear Regression Intercept:", lr.intercept_)
-    st.write(f"Root Mean Squared Error (RMSE): {rmse}")
+    # Prepare the results for display in a table
+    results = {
+        'Feature': list(X.columns) + ['Intercept', 'RMSE'],
+        'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
+    }
+    results_df = pd.DataFrame(results)
+
+    # Output the results as a table
+    st.write("Linear Regression Results:")
+    st.table(results_df)
 
 # Streamlit app setup
 st.subheader("Step 1. Upload your CSV file")
@@ -203,3 +193,4 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
+
