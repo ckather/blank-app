@@ -77,10 +77,17 @@ def run_weighted_linear_regression(df, feature_weights):
     # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
 
+    # Replace "high", "medium", "low" with 3, 2, 1 respectively
+    df = df.replace({"high": 3, "medium": 2, "low": 1})
+
     # Ensure all relevant columns are numeric
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    
+
+    # Display the processed DataFrame for debugging
+    st.write("Processed DataFrame (after converting strings and numeric conversion):")
+    st.dataframe(df)
+
     # Drop rows with NaN values (optional, depending on how you want to handle missing data)
     df = df.dropna()
 
