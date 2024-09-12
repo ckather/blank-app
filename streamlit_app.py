@@ -74,33 +74,41 @@ def generate_csv_template():
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
-    # Drop 'acct_numb' and 'acct_name' since they are not needed for the regression
+    # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
+
+    # Ensure all relevant columns are numeric
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # Separate features (X) and target (y)
-    X = df.drop(columns=['ProdA_sales_2023'])  # Use all columns except the target
-    y = df['ProdA_sales_2023']
-    
+    # Drop rows with NaN values (optional, depending on how you want to handle missing data)
+    df = df.dropna()
+
+    # Separate features (X) and target (y) - assuming target is 'ProdA_sales_2023'
+    X = df.drop(columns=['ProdA_sales_2023'])  # Exclude target column
+    y = df['ProdA_sales_2023']  # Target column
+
     # Apply weights to the features
     for feature in feature_weights:
-        X[feature] *= feature_weights[feature]
-    
+        if feature in X.columns:
+            X[feature] *= feature_weights[feature]
+
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
+
     # Initialize the linear regression model
     lr = LinearRegression()
-    
+
     # Train the model
     lr.fit(X_train, y_train)
-    
+
     # Make predictions on the test set
     y_pred = lr.predict(X_test)
-    
+
     # Calculate the Mean Squared Error (MSE) and Root Mean Squared Error (RMSE)
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
-    
+
     # Output the coefficients, intercept, and RMSE
     st.write("Linear Regression Coefficients:", lr.coef_)
     st.write("Linear Regression Intercept:", lr.intercept_)
