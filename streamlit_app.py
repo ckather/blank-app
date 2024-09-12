@@ -64,7 +64,7 @@ uploaded_file = st.file_uploader("Please upload a CSV file.")
 # Step 1b: Download the CSV template (this appears **below** the file uploader)
 csv_template = generate_csv_template()
 st.download_button(
-    label="Need the CSV template? Download it here! 🗂️",
+    label="Need the CSV template? Download it here! 📄",
     data=csv_template,
     file_name='csv_template.csv',
     mime='text/csv'
