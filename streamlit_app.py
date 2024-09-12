@@ -77,6 +77,10 @@ def run_weighted_linear_regression(df, feature_weights):
     # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
 
+    # Display the DataFrame before conversion for debugging
+    st.write("Original DataFrame (before any conversions):")
+    st.dataframe(df)
+
     # Replace "high", "medium", "low" with 3, 2, 1 respectively
     df = df.replace({"high": 3, "medium": 2, "low": 1})
 
@@ -84,11 +88,15 @@ def run_weighted_linear_regression(df, feature_weights):
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Display the processed DataFrame for debugging
+    # Display DataFrame after conversion for debugging
     st.write("Processed DataFrame (after converting strings and numeric conversion):")
     st.dataframe(df)
 
-    # Drop rows with NaN values (optional, depending on how you want to handle missing data)
+    # Show columns with NaN values
+    nan_columns = df.columns[df.isna().any()].tolist()
+    st.write(f"Columns with NaN values after processing: {nan_columns}")
+
+    # Drop rows with NaN values
     df = df.dropna()
 
     # Check if the dataset is empty after processing
@@ -183,4 +191,3 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
-
