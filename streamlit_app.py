@@ -1,8 +1,8 @@
 import streamlit as st
 
-st.title("⚕️ Pathways")
+st.title("⚕️ Pathways 💊")
 st.write(
-    "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
+    "Let's use this to predict some drug adoption. 💊🤓"
 )
 # Import necessary libraries
 import streamlit as st
