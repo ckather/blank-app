@@ -107,7 +107,18 @@ def run_weighted_linear_regression(df, feature_weights):
 
     # Display correlation matrix to check for multicollinearity
     st.write("Correlation Matrix:")
-    st.dataframe(df.corr())
+    correlation_matrix = df.corr()
+    st.dataframe(correlation_matrix)
+
+    # Messaging to explain the correlation matrix in simple English
+    st.write("**Correlation Matrix Explanation**:")
+    st.write("""
+    The correlation matrix shows how closely different features are related to each other:
+    - A value close to **1** indicates a strong positive relationship (e.g., as one feature increases, the other also increases).
+    - A value close to **-1** indicates a strong negative relationship (e.g., as one feature increases, the other decreases).
+    - A value close to **0** indicates little to no relationship between the features.
+    Be cautious if two features have a value close to **1** or **-1** as it might suggest multicollinearity, meaning they are too similar and can affect the regression model.
+    """)
 
     # Separate features (X) and target (y) - assuming target is 'ProdA_sales_2023'
     X = df.drop(columns=['ProdA_sales_2023'])  # Exclude target column
@@ -148,6 +159,16 @@ def run_weighted_linear_regression(df, feature_weights):
     # Output the results as a table
     st.write("Linear Regression Results:")
     st.table(results_df)
+
+    # Messaging to explain the regression results in simple English
+    st.write("**Regression Results Explanation**:")
+    st.write("""
+    The coefficients tell you how much the target variable ('ProdA_sales_2023') is expected to change when a feature changes by 1 unit:
+    - **Positive coefficient**: This feature has a positive influence on the target (increases 'ProdA_sales_2023').
+    - **Negative coefficient**: This feature has a negative influence on the target (decreases 'ProdA_sales_2023').
+    - **Intercept**: The value of 'ProdA_sales_2023' when all features are zero.
+    The **RMSE** (Root Mean Squared Error) tells you how far off the model's predictions are from the actual values. A lower RMSE indicates better accuracy.
+    """)
 
 # Streamlit app setup
 st.subheader("Step 1. Upload your CSV file")
@@ -201,3 +222,4 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
+
