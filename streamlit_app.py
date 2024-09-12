@@ -9,7 +9,7 @@ import streamlit as st
 import pandas as pd
 
 # Create an upload button
-uploaded_file = st.file_uploader("Choose a CSV file")
+uploaded_file = st.file_uploader("Step 1. Choose your CSV file. See the bottom of this page for document requirements.")
 
 # Check if a file is uploaded
 if uploaded_file is not None:
