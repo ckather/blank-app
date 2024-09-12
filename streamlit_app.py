@@ -121,8 +121,8 @@ def run_weighted_linear_regression(df, feature_weights):
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-    # Check if there is enough data for training
-    if X_train.empty or X_test.empty:
+    # Check if there is enough data for training using len() for numpy arrays
+    if len(X_train) == 0 or len(X_test) == 0:
         st.error("Error: Not enough data to train the model. Please provide more valid rows.")
         return
 
@@ -141,7 +141,7 @@ def run_weighted_linear_regression(df, feature_weights):
 
     # Prepare the results for display in a table
     results = {
-        'Feature': list(X.columns) + ['Intercept', 'RMSE'],
+        'Feature': list(df.drop(columns=['ProdA_sales_2023']).columns) + ['Intercept', 'RMSE'],
         'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
     }
     results_df = pd.DataFrame(results)
@@ -202,4 +202,3 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
-
