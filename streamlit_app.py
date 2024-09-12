@@ -1,33 +1,13 @@
-import streamlit as st
-
-st.title("⚕️ Pathways 💊")
-st.write(
-    "Let's use this to predict some drug adoption. 💊🤓"
-)
-# Import necessary libraries
-import streamlit as st
-import pandas as pd
-
-# Create an upload button
-uploaded_file = st.file_uploader("Step 1. Choose your CSV file. See the bottom of this page for document requirements.")
-
-# Check if a file is uploaded
-if uploaded_file is not None:
-    # Read the file into a DataFrame (assuming it's a CSV file)
-    df = pd.read_csv(uploaded_file)
-    
-    # Display the content of the uploaded file
-    st.write("Here is the data from the uploaded file:")
-    st.dataframe(df)
-else:
-    st.write("Please upload a CSV file.")
-
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
+
+# Set the title of the app
+st.title("⚕️ Pathways 💊")
+st.write("Let's use this to predict some drug adoption. 💊🤓")
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
@@ -65,20 +45,17 @@ def run_weighted_linear_regression(df, feature_weights):
     st.write("Linear Regression Intercept:", lr.intercept_)
     st.write(f"Root Mean Squared Error (RMSE): {rmse}")
 
-# Streamlit app
-st.title("Weighted Linear Regression App")
+# Create an upload button for CSV file (Step 1)
+uploaded_file = st.file_uploader("Step 1. Choose your CSV file. See the bottom of this page for document requirements.")
 
-# Create an upload button for CSV file
-uploaded_file = st.file_uploader("Upload your CSV file")
-
-# Default feature weights
+# Default feature weights for the weighted linear regression
 feature_weights = {
     'units 2023': 1.5,  # Example weight for 'units 2023'
     'adoption likelihood metric 1': 0.8,  # Example weight for 'adoption likelihood metric 1'
     'adoption likelihood metric 2': 1.0   # Example weight for 'adoption likelihood metric 2'
 }
 
-# If a file is uploaded
+# Check if a file is uploaded
 if uploaded_file is not None:
     # Read the file into a DataFrame
     df = pd.read_csv(uploaded_file)
@@ -94,3 +71,6 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
+else:
+    st.write("Please upload a CSV file.")
+
