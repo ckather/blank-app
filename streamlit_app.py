@@ -9,35 +9,84 @@ from sklearn.metrics import mean_squared_error
 st.title("⚕️ Pathways 💊")
 st.write("Let's use this to predict some drug adoption. 💊🤓")
 
-# Function to generate CSV template
+# Function to generate CSV template with disclaimer
 def generate_csv_template():
+    # Create a disclaimer row
+    disclaimer = pd.DataFrame({
+        'acct_numb': ['Disclaimer: These are placeholder numbers. Please replace with your own data.'],
+        'acct_name': [''],
+        'ProdA_sales_first12': [''],
+        'ProdA_units_first12': [''],
+        'competition_sales_first12': [''],
+        'competition_units_first12': [''],
+        'ProdA_sales_2022': [''],
+        'ProdA_units_2022': [''],
+        'competition_sales_2022': [''],
+        'competition_units_2022': [''],
+        'ProdA_sales_2023': [''],
+        'Total 2022 and 2023': [''],
+        'ProdA_units_2023': [''],
+        'competition_sales_2023': [''],
+        'competition_units_2023': [''],
+        'analog_1_adopt': [''],
+        'analog_2_adopt': [''],
+        'analog_3_adopt': [''],
+        'quintile_ProdA_totalsales': [''],
+        'quintile_ProdB_opportunity': [''],
+        'ability_to_influence': [''],
+        'percentage_340B_adoption': ['']
+    })
+
+    # Create the data with placeholder values
     template_data = {
-        'account number': ['123', '456', '789'],
-        'sales 2023': [10000, 15000, 12000],
-        'units 2023': [100, 150, 120],
-        'adoption likelihood metric 1': [0.5, 0.7, 0.6],
-        'adoption likelihood metric 2': [0.3, 0.4, 0.5]
+        'acct_numb': ['123', '456', '789'],
+        'acct_name': ['Account A', 'Account B', 'Account C'],
+        'ProdA_sales_first12': [10000, 15000, 12000],
+        'ProdA_units_first12': [100, 150, 120],
+        'competition_sales_first12': [5000, 6000, 5500],
+        'competition_units_first12': [50, 60, 55],
+        'ProdA_sales_2022': [20000, 25000, 22000],
+        'ProdA_units_2022': [200, 250, 220],
+        'competition_sales_2022': [10000, 11000, 10500],
+        'competition_units_2022': [100, 110, 105],
+        'ProdA_sales_2023': [30000, 35000, 32000],
+        'Total 2022 and 2023': [50000, 60000, 54000],
+        'ProdA_units_2023': [300, 350, 320],
+        'competition_sales_2023': [15000, 16000, 15500],
+        'competition_units_2023': [150, 160, 155],
+        'analog_1_adopt': [0.6, 0.7, 0.65],
+        'analog_2_adopt': [0.5, 0.6, 0.55],
+        'analog_3_adopt': [0.4, 0.5, 0.45],
+        'quintile_ProdA_totalsales': [1, 2, 1],
+        'quintile_ProdB_opportunity': [3, 4, 5],
+        'ability_to_influence': [0.7, 0.8, 0.75],
+        'percentage_340B_adoption': [0.2, 0.3, 0.25]
     }
+
+    # Convert template data to a DataFrame
     template_df = pd.DataFrame(template_data)
-    return template_df.to_csv(index=False)
+
+    # Combine the disclaimer with the actual data
+    combined_df = pd.concat([disclaimer, template_df], ignore_index=True)
+    
+    # Return the CSV as a string
+    return combined_df.to_csv(index=False)
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
-    # Drop 'account number' since it's not needed for the regression
-    df = df.drop(columns=['account number'])
+    # Drop 'acct_numb' and 'acct_name' since they are not needed for the regression
+    df = df.drop(columns=['acct_numb', 'acct_name'])
     
     # Separate features (X) and target (y)
-    X = df[['units 2023', 'adoption likelihood metric 1', 'adoption likelihood metric 2']]
-    y = df['sales 2023']
+    X = df.drop(columns=['ProdA_sales_2023'])  # Use all columns except the target
+    y = df['ProdA_sales_2023']
     
     # Apply weights to the features
-    X_weighted = X.copy()
-    X_weighted['units 2023'] *= feature_weights['units 2023']
-    X_weighted['adoption likelihood metric 1'] *= feature_weights['adoption likelihood metric 1']
-    X_weighted['adoption likelihood metric 2'] *= feature_weights['adoption likelihood metric 2']
+    for feature in feature_weights:
+        X[feature] *= feature_weights[feature]
     
     # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X_weighted, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
     # Initialize the linear regression model
     lr = LinearRegression()
@@ -57,11 +106,11 @@ def run_weighted_linear_regression(df, feature_weights):
     st.write("Linear Regression Intercept:", lr.intercept_)
     st.write(f"Root Mean Squared Error (RMSE): {rmse}")
 
-# Step 1: Upload CSV File
+# Streamlit app setup
 st.subheader("Step 1. Upload your CSV file")
 uploaded_file = st.file_uploader("Please upload a CSV file.")
 
-# Step 1b: Download the CSV template (this appears **below** the file uploader)
+# Provide the CSV template download button below the file uploader
 csv_template = generate_csv_template()
 st.download_button(
     label="Need the CSV template? Download it here! 📄",
@@ -72,9 +121,25 @@ st.download_button(
 
 # Default feature weights for the weighted linear regression
 feature_weights = {
-    'units 2023': 1.5,  # Example weight for 'units 2023'
-    'adoption likelihood metric 1': 0.8,  # Example weight for 'adoption likelihood metric 1'
-    'adoption likelihood metric 2': 1.0   # Example weight for 'adoption likelihood metric 2'
+    'ProdA_sales_first12': 1.2,
+    'ProdA_units_first12': 1.1,
+    'competition_sales_first12': 0.9,
+    'competition_units_first12': 0.8,
+    'ProdA_sales_2022': 1.3,
+    'ProdA_units_2022': 1.1,
+    'competition_sales_2022': 0.9,
+    'competition_units_2022': 0.8,
+    'Total 2022 and 2023': 1.0,
+    'ProdA_units_2023': 1.1,
+    'competition_sales_2023': 0.9,
+    'competition_units_2023': 0.8,
+    'analog_1_adopt': 0.7,
+    'analog_2_adopt': 0.6,
+    'analog_3_adopt': 0.5,
+    'quintile_ProdA_totalsales': 1.0,
+    'quintile_ProdB_opportunity': 1.0,
+    'ability_to_influence': 0.8,
+    'percentage_340B_adoption': 0.6
 }
 
 # Check if a file is uploaded
