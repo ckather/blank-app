@@ -93,5 +93,4 @@ if uploaded_file is not None:
     if st.button('Run Weighted Linear Regression'):
         st.write("Running weighted linear regression...")
         run_weighted_linear_regression(df, feature_weights)
-else:
-    st.write("Please upload a CSV file.")
+
