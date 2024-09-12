@@ -73,7 +73,7 @@ def generate_csv_template():
     # Return the CSV as a string
     return combined_df.to_csv(index=False)
 
-# Function to run weighted linear regression with data inspection and scaling
+# Function to run weighted linear regression with data inspection
 def run_weighted_linear_regression(df, feature_weights):
     # Drop irrelevant columns (like acct_numb, acct_name)
     df = df.drop(columns=['acct_numb', 'acct_name'])
@@ -105,6 +105,10 @@ def run_weighted_linear_regression(df, feature_weights):
     st.write("Data Summary:")
     st.dataframe(df.describe())
 
+    # Display correlation matrix to check for multicollinearity
+    st.write("Correlation Matrix:")
+    st.dataframe(df.corr())
+
     # Separate features (X) and target (y) - assuming target is 'ProdA_sales_2023'
     X = df.drop(columns=['ProdA_sales_2023'])  # Exclude target column
     y = df['ProdA_sales_2023']  # Target column
@@ -120,11 +124,6 @@ def run_weighted_linear_regression(df, feature_weights):
 
     # Split the data into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-
-    # Check if there is enough data for training using len() for numpy arrays
-    if len(X_train) == 0 or len(X_test) == 0:
-        st.error("Error: Not enough data to train the model. Please provide more valid rows.")
-        return
 
     # Initialize the linear regression model
     lr = LinearRegression()
