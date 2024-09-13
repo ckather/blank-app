@@ -138,7 +138,8 @@ def run_weighted_linear_regression(df, feature_weights):
     st.success("Linear Regression Results:")
     st.table(results_df)
 
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+    # Remove the extra horizontal line here
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # Provide download options for results
     st.subheader("Step 3: Download Results")
@@ -263,4 +264,5 @@ if uploaded_file is not None:
             st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
             run_random_forest(df, feature_weights)
         elif no_button:
+            # Display the requested message
             st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
