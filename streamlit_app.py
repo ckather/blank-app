@@ -71,20 +71,27 @@ def generate_csv_template():
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
+    # Drop non-numeric columns like acct_numb and acct_name
     df = df.drop(columns=['acct_numb', 'acct_name'])
+    
+    # Replace "high", "medium", "low" with numeric values
     df = df.replace({"high": 3, "medium": 2, "low": 1})
     
+    # Remove commas and dollar signs from sales columns
     sales_columns = ['ProdA_sales_first12', 'competition_sales_first12', 'ProdA_sales_2022', 'competition_sales_2022', 'ProdA_sales_2023', 'Total 2022 and 2023', 'competition_sales_2023']
     for col in sales_columns:
         df[col] = df[col].replace({'\$': '', ',': ''}, regex=True)
     
+    # Remove percentage signs and convert to numeric
     df['percentage_340B_adoption'] = df['percentage_340B_adoption'].str.replace('%', '').astype(float)
 
     # Ensure all relevant columns are numeric
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
+    # Drop rows with NaN values
     df = df.dropna()
+    
     if df.empty:
         st.error("Error: No valid data after processing. Please check your CSV file and ensure all columns contain numeric values.")
         return
@@ -96,29 +103,34 @@ def run_weighted_linear_regression(df, feature_weights):
     correlation_matrix = df.corr()
     st.dataframe(correlation_matrix)
 
+    # Separate features (X) and target (y)
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
 
     # Apply weights to numeric columns only
     for feature in feature_weights:
         if feature in X.columns:
-            X[feature] = X[feature].apply(pd.to_numeric, errors='coerce')  # Ensure the column is numeric
             X[feature] *= feature_weights[feature]
 
+    # Scale the features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
+    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
+    # Train linear regression model
     lr = LinearRegression()
     lr.fit(X_train, y_train)
 
+    # Make predictions on the test set
     y_pred = lr.predict(X_test)
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
 
+    # Prepare results for display
     results = {
-        'Feature': list(df.drop(columns=['ProdA_sales_2023']).columns) + ['Intercept', 'RMSE'],
+        'Feature': list(X.columns) + ['Intercept', 'RMSE'],
         'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
     }
     results_df = pd.DataFrame(results)
@@ -128,6 +140,7 @@ def run_weighted_linear_regression(df, feature_weights):
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
     
+    # Provide download options for results
     st.subheader("Step 3: Download Results")
     corr_csv = correlation_matrix.to_csv(index=True)
     results_csv = results_df.to_csv(index=False)
@@ -160,14 +173,13 @@ def run_random_forest(df, feature_weights):
 
     for feature in feature_weights:
         if feature in X.columns:
-            X[feature] = X[feature].apply(pd.to_numeric, errors='coerce')  # Ensure the column is numeric
             X[feature] *= feature_weights[feature]
 
     # Scale the features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Train/Test split
+    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
     # Random Forest Regressor
@@ -193,6 +205,7 @@ def run_random_forest(df, feature_weights):
 st.subheader("Step 1: Upload Your CSV File")
 uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
 
+# Provide template download button
 csv_template = generate_csv_template()
 st.download_button(
     label="Need a CSV template? Download here 📄",
@@ -224,6 +237,7 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
+# Process file upload and run regression
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
     st.info("Here is a preview of your uploaded data:")
