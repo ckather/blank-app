@@ -235,9 +235,9 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
-# Store button state in session
-if 'button_clicked' not in st.session_state:
-    st.session_state.button_clicked = None
+# Use session state to store user action
+if 'analysis_decision' not in st.session_state:
+    st.session_state.analysis_decision = None
 
 # Process file upload and run regression
 if uploaded_file is not None:
@@ -257,14 +257,14 @@ if uploaded_file is not None:
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Yes, proceed 🔄"):
-                st.session_state.button_clicked = 'yes'
+                st.session_state.analysis_decision = 'yes'
         with col2:
             if st.button("No, stop ❌"):
-                st.session_state.button_clicked = 'no'
+                st.session_state.analysis_decision = 'no'
         
-        # Handle button clicks
-        if st.session_state.button_clicked == 'yes':
+        # Handle button clicks without resetting the page view
+        if st.session_state.analysis_decision == 'yes':
             st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
             run_random_forest(df, feature_weights)
-        elif st.session_state.button_clicked == 'no':
+        elif st.session_state.analysis_decision == 'no':
             st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
