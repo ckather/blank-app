@@ -138,7 +138,7 @@ def run_weighted_linear_regression(df, feature_weights):
     st.success("Linear Regression Results:")
     st.table(results_df)
 
-    # Remove the extra horizontal line here
+    # Remove the extra horizontal line here and only add spacing
     st.markdown("<br>", unsafe_allow_html=True)
     
     # Provide download options for results
@@ -161,8 +161,6 @@ def run_weighted_linear_regression(df, feature_weights):
             file_name='regression_results.csv',
             mime='text/csv'
         )
-
-    st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
 # Function to run a Random Forest model
 def run_random_forest(df, feature_weights):
@@ -250,7 +248,6 @@ if uploaded_file is not None:
         run_weighted_linear_regression(df, feature_weights)
         
         # Ask the user if they want to proceed with further analysis
-        st.markdown("<br><hr><br>", unsafe_allow_html=True)
         st.subheader("Question: Do you want to proceed with further analysis?")
         
         # Yes and No buttons, styled like download buttons
