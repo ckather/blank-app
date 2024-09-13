@@ -145,16 +145,6 @@ def run_weighted_linear_regression(df, feature_weights):
         )
 
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
-    
-    # Step 4: Ask if user wants to proceed with further analysis
-    st.subheader("Question: Do you want to proceed with further analysis?")
-    proceed = st.radio("Please select an option:", ["Yes", "No"])
-
-    if proceed == "Yes":
-        st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
-        run_random_forest(df, feature_weights)
-    else:
-        st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
 
 # Function to run a Random Forest model
 def run_random_forest(df, feature_weights):
@@ -238,3 +228,14 @@ if uploaded_file is not None:
     if st.button('Run Linear Regression'):
         st.info("Running the regression model, please wait...")
         run_weighted_linear_regression(df, feature_weights)
+        
+        # Ask the user if they want to proceed with further analysis
+        st.markdown("<br><hr><br>", unsafe_allow_html=True)
+        st.subheader("Question: Do you want to proceed with further analysis?")
+        proceed = st.radio("Please select an option:", ["Yes", "No"], key="proceed_option")
+
+        if proceed == "Yes":
+            st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
+            run_random_forest(df, feature_weights)
+        elif proceed == "No":
+            st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
