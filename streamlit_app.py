@@ -77,8 +77,10 @@ def run_weighted_linear_regression(df, feature_weights):
     sales_columns = ['ProdA_sales_first12', 'competition_sales_first12', 'ProdA_sales_2022', 'competition_sales_2022', 'ProdA_sales_2023', 'Total 2022 and 2023', 'competition_sales_2023']
     for col in sales_columns:
         df[col] = df[col].replace({'\$': '', ',': ''}, regex=True)
+    
     df['percentage_340B_adoption'] = df['percentage_340B_adoption'].str.replace('%', '').astype(float)
 
+    # Ensure all relevant columns are numeric
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -97,8 +99,10 @@ def run_weighted_linear_regression(df, feature_weights):
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
 
+    # Apply weights to numeric columns only
     for feature in feature_weights:
         if feature in X.columns:
+            X[feature] = X[feature].apply(pd.to_numeric, errors='coerce')  # Ensure the column is numeric
             X[feature] *= feature_weights[feature]
 
     scaler = StandardScaler()
@@ -156,6 +160,7 @@ def run_random_forest(df, feature_weights):
 
     for feature in feature_weights:
         if feature in X.columns:
+            X[feature] = X[feature].apply(pd.to_numeric, errors='coerce')  # Ensure the column is numeric
             X[feature] *= feature_weights[feature]
 
     # Scale the features
