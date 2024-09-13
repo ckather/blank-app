@@ -235,10 +235,6 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
-# Use session state to store user action
-if 'analysis_decision' not in st.session_state:
-    st.session_state.analysis_decision = None
-
 # Process file upload and run regression
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -250,20 +246,6 @@ if uploaded_file is not None:
         st.info("Running the regression model, please wait...")
         run_weighted_linear_regression(df, feature_weights)
         
-        # Ask the user if they want to proceed with further analysis
-        st.subheader("Question: Do you want to proceed with further analysis?")
-        
-        # Yes and No buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Yes, proceed 🔄"):
-                st.session_state.analysis_decision = 'yes'
-        with col2:
-            if st.button("No, stop ❌"):
-                st.session_state.analysis_decision = 'no'
-                st.experimental_rerun()  # Refresh the page if "No" is pressed
-        
-        # Handle button clicks without resetting the page view
-        if st.session_state.analysis_decision == 'yes':
-            st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
-            run_random_forest(df, feature_weights)
+        # Automatically proceed to Step 4 after linear regression completes
+        st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
+        run_random_forest(df, feature_weights)
