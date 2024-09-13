@@ -251,10 +251,16 @@ if uploaded_file is not None:
         # Ask the user if they want to proceed with further analysis
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
         st.subheader("Question: Do you want to proceed with further analysis?")
-        proceed = st.radio("Please select an option:", ["Yes", "No"], key="proceed_option")
-
-        if proceed == "Yes":
+        
+        # Yes and No buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            yes_button = st.button("Yes, proceed 🔄")
+        with col2:
+            no_button = st.button("No, stop ❌")
+        
+        if yes_button:
             st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
             run_random_forest(df, feature_weights)
-        elif proceed == "No":
+        elif no_button:
             st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
