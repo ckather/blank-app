@@ -261,10 +261,9 @@ if uploaded_file is not None:
         with col2:
             if st.button("No, stop ❌"):
                 st.session_state.analysis_decision = 'no'
+                st.experimental_rerun()  # Refresh the page if "No" is pressed
         
         # Handle button clicks without resetting the page view
         if st.session_state.analysis_decision == 'yes':
             st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
             run_random_forest(df, feature_weights)
-        elif st.session_state.analysis_decision == 'no':
-            st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
