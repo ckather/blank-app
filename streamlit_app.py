@@ -252,7 +252,7 @@ if uploaded_file is not None:
         st.markdown("<br><hr><br>", unsafe_allow_html=True)
         st.subheader("Question: Do you want to proceed with further analysis?")
         
-        # Yes and No buttons
+        # Yes and No buttons, styled like download buttons
         col1, col2 = st.columns(2)
         with col1:
             yes_button = st.button("Yes, proceed 🔄")
