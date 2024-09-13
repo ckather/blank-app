@@ -235,7 +235,7 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
-# Use session state to store user action
+# Store button state in session
 if 'button_clicked' not in st.session_state:
     st.session_state.button_clicked = None
 
@@ -253,7 +253,7 @@ if uploaded_file is not None:
         # Ask the user if they want to proceed with further analysis
         st.subheader("Question: Do you want to proceed with further analysis?")
         
-        # Yes and No buttons, styled like download buttons
+        # Yes and No buttons
         col1, col2 = st.columns(2)
         with col1:
             if st.button("Yes, proceed 🔄"):
@@ -262,6 +262,7 @@ if uploaded_file is not None:
             if st.button("No, stop ❌"):
                 st.session_state.button_clicked = 'no'
         
+        # Handle button clicks
         if st.session_state.button_clicked == 'yes':
             st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
             run_random_forest(df, feature_weights)
