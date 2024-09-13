@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
@@ -142,6 +143,56 @@ def run_weighted_linear_regression(df, feature_weights):
             file_name='regression_results.csv',
             mime='text/csv'
         )
+
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+    
+    # Step 4: Ask if user wants to proceed with further analysis
+    st.subheader("Question: Do you want to proceed with further analysis?")
+    proceed = st.radio("Please select an option:", ["Yes", "No"])
+
+    if proceed == "Yes":
+        st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
+        run_random_forest(df, feature_weights)
+    else:
+        st.info("Great, no further analysis will be performed on this dataset. To download the prior analyses, see the options above. To run a new analysis, please refresh the page.")
+
+# Function to run a Random Forest model
+def run_random_forest(df, feature_weights):
+    st.subheader("Step 4: Running a Random Forest Machine Learning Model")
+
+    # Prepare features and target
+    X = df.drop(columns=['ProdA_sales_2023'])
+    y = df['ProdA_sales_2023']
+
+    for feature in feature_weights:
+        if feature in X.columns:
+            X[feature] *= feature_weights[feature]
+
+    # Scale the features
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Train/Test split
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+    # Random Forest Regressor
+    rf = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+
+    # Predictions and performance evaluation
+    y_pred_rf = rf.predict(X_test)
+    mse_rf = mean_squared_error(y_test, y_pred_rf)
+    rmse_rf = mse_rf ** 0.5
+
+    st.success(f"Random Forest Model RMSE: {rmse_rf:.2f}")
+    st.write("Feature Importances:")
+    
+    feature_importances = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': rf.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+    
+    st.table(feature_importances)
 
 # Step 1: Upload CSV
 st.subheader("Step 1: Upload Your CSV File")
