@@ -247,5 +247,5 @@ if uploaded_file is not None:
         run_weighted_linear_regression(df, feature_weights)
         
         # Automatically proceed to Step 4 after linear regression completes
-        st.success("Proceeding to Step 4: Running a Random Forest Machine Learning model.")
+        st.success("COMING SOON! Proceeding to Step 4: Running a Random Forest Machine Learning model. COMING SOON!")
         run_random_forest(df, feature_weights)
