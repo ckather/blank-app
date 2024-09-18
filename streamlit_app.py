@@ -12,17 +12,16 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to clean and ensure data validity
-def clean_data(df):
+# Function to clean only numeric columns
+def clean_numeric_columns(df, numeric_columns):
     try:
-        # Remove commas, dollar signs, and percentage symbols from relevant columns
-        df = df.replace({'\$': '', ',': '', '%': ''}, regex=True)
+        # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
+        for col in numeric_columns:
+            df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
+            df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, set invalid parsing as NaN
         
-        # Convert all columns to numeric where possible, with errors as NaN
-        df = df.apply(pd.to_numeric, errors='coerce')
-        
-        # Drop rows with NaN values after processing
-        df = df.dropna()
+        # Drop rows with NaN values in the numeric columns
+        df = df.dropna(subset=numeric_columns)
         
         if df.empty:
             raise ValueError("No valid data after cleaning.")
@@ -30,13 +29,13 @@ def clean_data(df):
         return df
     
     except Exception as e:
-        st.error(f"Error: {str(e)}. Please check your CSV file and ensure all columns contain numeric values.")
+        st.error(f"Error: {str(e)}. Please check your CSV file and ensure all numeric columns contain valid data.")
         return None
 
 # Function to run weighted linear regression
-def run_weighted_linear_regression(df, feature_weights):
-    # Clean and validate data
-    df = clean_data(df)
+def run_weighted_linear_regression(df, feature_weights, numeric_columns):
+    # Clean and validate only the numeric columns
+    df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
     
@@ -109,11 +108,11 @@ def run_weighted_linear_regression(df, feature_weights):
         )
 
 # Function to run a Random Forest model
-def run_random_forest(df, feature_weights):
+def run_random_forest(df, feature_weights, numeric_columns):
     st.subheader("Step 4: Running a Random Forest Machine Learning Model")
 
     # Clean and validate data
-    df = clean_data(df)
+    df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
 
@@ -234,6 +233,15 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
+# List of numeric columns to clean
+numeric_columns = [
+    'ProdA_sales_first12', 'ProdA_units_first12', 'competition_sales_first12', 'competition_units_first12',
+    'ProdA_sales_2022', 'ProdA_units_2022', 'competition_sales_2022', 'competition_units_2022',
+    'ProdA_sales_2023', 'Total 2022 and 2023', 'ProdA_units_2023', 'competition_sales_2023',
+    'competition_units_2023', 'analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt', 'quintile_ProdA_totalsales',
+    'quintile_ProdB_opportunity', 'ability_to_influence', 'percentage_340B_adoption'
+]
+
 # Process file upload and run regression
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -242,10 +250,11 @@ if uploaded_file is not None:
     st.subheader("Step 2: Run Your Weighted Linear Regression")
     if st.button('Run Linear Regression'):
         st.info("Running the regression model, please wait...")
-        run_weighted_linear_regression(df, feature_weights)
+        run_weighted_linear_regression(df, feature_weights, numeric_columns)
         
         # Button to run Random Forest after Linear Regression completes
         st.subheader("Step 4: Run Your Random Forest Model")
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
-            run_random_forest(df, feature_weights)
+            run_random_forest(df, feature_weights, numeric_columns)
+
