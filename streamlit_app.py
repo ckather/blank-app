@@ -7,16 +7,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
-# Define a function to wrap content with a thin border
-def bordered_content(title, content):
-    st.markdown(f"""
-    <div style="border: 1px solid #D3D3D3; padding: 20px; border-radius: 10px;">
-        <h4 style="color: #2E86C1; text-align: center;">{title}</h4>
-        {content}
-    </div>
-    """, unsafe_allow_html=True)
-
-# Set the sleek title of the app with a professional design
+# Set the sleek title of the app
 st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Prediction Platform 💊</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
@@ -44,12 +35,6 @@ def clean_data(df):
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
-    # Ensure columns required for regression exist
-    required_columns = ['acct_numb', 'acct_name', 'ProdA_sales_2023']
-    if not all(col in df.columns for col in required_columns):
-        st.error(f"Missing one or more required columns: {', '.join(required_columns)}")
-        return
-
     # Clean and validate data
     df = clean_data(df)
     if df is None:
@@ -125,12 +110,6 @@ def run_weighted_linear_regression(df, feature_weights):
 
 # Function to run a Random Forest model
 def run_random_forest(df, feature_weights):
-    # Ensure columns required for Random Forest exist
-    required_columns = ['ProdA_sales_2023']
-    if not all(col in df.columns for col in required_columns):
-        st.error(f"Missing one or more required columns: {', '.join(required_columns)}")
-        return
-
     st.subheader("Step 4: Running a Random Forest Machine Learning Model")
 
     # Clean and validate data
@@ -196,15 +175,35 @@ def run_random_forest(df, feature_weights):
         )
 
 # Step 1: Upload CSV
-bordered_content("Step 1: Upload Your CSV File", """
-    <div style='text-align: center;'>
-        <p>Choose your CSV file below</p>
-    </div>
-""")
+st.subheader("Step 1: Upload Your CSV File")
 uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
 
 # Provide template download button
-csv_template = generate_csv_template()
+csv_template = pd.DataFrame({
+    'acct_numb': ['123', '456', '789'],
+    'acct_name': ['Account A', 'Account B', 'Account C'],
+    'ProdA_sales_first12': [10000, 15000, 12000],
+    'ProdA_units_first12': [100, 150, 120],
+    'competition_sales_first12': [5000, 6000, 5500],
+    'competition_units_first12': [50, 60, 55],
+    'ProdA_sales_2022': [20000, 25000, 22000],
+    'ProdA_units_2022': [200, 250, 220],
+    'competition_sales_2022': [10000, 11000, 10500],
+    'competition_units_2022': [100, 110, 105],
+    'ProdA_sales_2023': [30000, 35000, 32000],
+    'Total 2022 and 2023': [50000, 60000, 54000],
+    'ProdA_units_2023': [300, 350, 320],
+    'competition_sales_2023': [15000, 16000, 15500],
+    'competition_units_2023': [150, 160, 155],
+    'analog_1_adopt': [0.6, 0.7, 0.65],
+    'analog_2_adopt': [0.5, 0.6, 0.55],
+    'analog_3_adopt': [0.4, 0.5, 0.45],
+    'quintile_ProdA_totalsales': [1, 2, 1],
+    'quintile_ProdB_opportunity': [3, 4, 5],
+    'ability_to_influence': [0.7, 0.8, 0.75],
+    'percentage_340B_adoption': [0.2, 0.3, 0.25]
+}).to_csv(index=False)
+
 st.download_button(
     label="Download CSV Template 📄",
     data=csv_template,
@@ -238,7 +237,7 @@ feature_weights = {
 # Process file upload and run regression
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    bordered_content("Uploaded Data Preview", df.head().to_html(index=False))
+    st.dataframe(df.head())
     
     st.subheader("Step 2: Run Your Weighted Linear Regression")
     if st.button('Run Linear Regression'):
