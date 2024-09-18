@@ -15,16 +15,23 @@ st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=Tru
 # Function to clean only numeric columns
 def clean_numeric_columns(df, numeric_columns):
     try:
+        st.write("### Original Data Preview:")
+        st.dataframe(df.head())  # Show the original data before cleaning
+        
         # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
         for col in numeric_columns:
             df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
             df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, set invalid parsing as NaN
         
+        st.write("### Data After Numeric Cleaning (before NaN removal):")
+        st.dataframe(df[numeric_columns].head())  # Show cleaned numeric columns
+        
         # Drop rows with NaN values in the numeric columns
         df = df.dropna(subset=numeric_columns)
         
         if df.empty:
-            raise ValueError("No valid data after cleaning.")
+            st.error("All rows have been dropped due to invalid numeric data.")
+            return None
         
         return df
     
@@ -245,7 +252,7 @@ numeric_columns = [
 # Process file upload and run regression
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.dataframe(df.head())
+    st.dataframe(df.head())  # Preview the raw data
     
     st.subheader("Step 2: Run Your Weighted Linear Regression")
     if st.button('Run Linear Regression'):
@@ -257,4 +264,3 @@ if uploaded_file is not None:
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
             run_random_forest(df, feature_weights, numeric_columns)
-
