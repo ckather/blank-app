@@ -7,10 +7,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
-# Set the title of the app with a modern design
-st.markdown("<h1 style='text-align: center; color: #4CAF50;'>⚕️ Pathways 💊</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center;'>Predict drug adoption using weighted linear regression</h4>", unsafe_allow_html=True)
-st.markdown("<hr>", unsafe_allow_html=True)
+# Set the sleek title of the app with a professional design
+st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Prediction Platform 💊</h1>", unsafe_allow_html=True)
+st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
+st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
 # Function to generate CSV template with disclaimer
 def generate_csv_template():
@@ -96,10 +96,10 @@ def run_weighted_linear_regression(df, feature_weights):
         st.error("Error: No valid data after processing. Please check your CSV file and ensure all columns contain numeric values.")
         return
 
-    st.info("Here is a summary of the data used for regression:")
+    st.info("Summary of the data used for regression:")
     st.dataframe(df.describe())
 
-    st.info("Correlation Matrix to identify relationships between variables:")
+    st.info("Correlation Matrix between variables:")
     correlation_matrix = df.corr()
     st.dataframe(correlation_matrix)
 
@@ -192,12 +192,34 @@ def run_random_forest(df, feature_weights):
     st.success(f"Random Forest Model RMSE: {rmse_rf:.2f}")
     st.write("Feature Importances:")
     
+    # Feature Importances
     feature_importances = pd.DataFrame({
         'Feature': X.columns,
         'Importance': rf.feature_importances_
     }).sort_values(by='Importance', ascending=False)
     
     st.table(feature_importances)
+
+    # Provide download options for Random Forest results
+    st.subheader("Download Random Forest Results")
+    rf_importance_csv = feature_importances.to_csv(index=False)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="Download Random Forest Feature Importances 🌲",
+            data=rf_importance_csv,
+            file_name='random_forest_importances.csv',
+            mime='text/csv'
+        )
+    with col2:
+        rf_predictions_csv = pd.DataFrame({'Actual': y_test, 'Predicted': y_pred_rf}).to_csv(index=False)
+        st.download_button(
+            label="Download Random Forest Predictions 🔍",
+            data=rf_predictions_csv,
+            file_name='random_forest_predictions.csv',
+            mime='text/csv'
+        )
 
 # Step 1: Upload CSV
 st.subheader("Step 1: Upload Your CSV File")
@@ -206,7 +228,7 @@ uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
 # Provide template download button
 csv_template = generate_csv_template()
 st.download_button(
-    label="Need a CSV template? Download here 📄",
+    label="Download CSV Template 📄",
     data=csv_template,
     file_name='csv_template.csv',
     mime='text/csv'
@@ -246,6 +268,8 @@ if uploaded_file is not None:
         st.info("Running the regression model, please wait...")
         run_weighted_linear_regression(df, feature_weights)
         
-        # Automatically proceed to Step 4 after linear regression completes
-        st.success("COMING SOON! Proceeding to Step 4: Running a Random Forest Machine Learning model. COMING SOON!")
-        run_random_forest(df, feature_weights)
+        # Button to run Random Forest after Linear Regression completes
+        st.subheader("Step 4: Run Your Random Forest Model")
+        if st.button('Run Random Forest Model'):
+            st.info("Running the Random Forest model, please wait...")
+            run_random_forest(df, feature_weights)
