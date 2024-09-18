@@ -44,6 +44,12 @@ def clean_data(df):
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights):
+    # Ensure columns required for regression exist
+    required_columns = ['acct_numb', 'acct_name', 'ProdA_sales_2023']
+    if not all(col in df.columns for col in required_columns):
+        st.error(f"Missing one or more required columns: {', '.join(required_columns)}")
+        return
+
     # Clean and validate data
     df = clean_data(df)
     if df is None:
@@ -119,6 +125,12 @@ def run_weighted_linear_regression(df, feature_weights):
 
 # Function to run a Random Forest model
 def run_random_forest(df, feature_weights):
+    # Ensure columns required for Random Forest exist
+    required_columns = ['ProdA_sales_2023']
+    if not all(col in df.columns for col in required_columns):
+        st.error(f"Missing one or more required columns: {', '.join(required_columns)}")
+        return
+
     st.subheader("Step 4: Running a Random Forest Machine Learning Model")
 
     # Clean and validate data
@@ -238,4 +250,3 @@ if uploaded_file is not None:
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
             run_random_forest(df, feature_weights)
-
