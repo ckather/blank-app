@@ -26,14 +26,16 @@ def clean_numeric_columns(df, numeric_columns):
 
         # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
         for col in numeric_columns:
-            # Log any invalid values that will be dropped
-            invalid = df[col][~df[col].str.replace(r'[\$,]', '', regex=True).str.isnumeric()]
-            if not invalid.empty:
-                invalid_data[col] = invalid.tolist()
+            if df[col].dtype == 'object':  # Check if column is string (object type)
+                # Log any invalid values that will be dropped
+                invalid = df[col][~df[col].str.replace(r'[\$,]', '', regex=True).str.isnumeric()]
+                if not invalid.empty:
+                    invalid_data[col] = invalid.tolist()
 
-            # Clean the column and convert to numeric
-            df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
-            df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, set invalid parsing as NaN
+                # Clean the column and convert to numeric
+                df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
+            # Convert to numeric, set invalid parsing as NaN
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
         if invalid_data:
             st.write("### Invalid Data (to be dropped):")
@@ -280,3 +282,4 @@ if uploaded_file is not None:
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
             run_random_forest(df, feature_weights, numeric_columns)
+
