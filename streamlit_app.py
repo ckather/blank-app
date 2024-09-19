@@ -1,15 +1,10 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import StandardScaler
 
 # Set the title of the app
 st.title("⚕️ Pathways Prediction Platform 💊")
-st.write("Predict drug adoption using advanced machine learning models")
+st.write("Upload your data and explore data types and non-numeric values.")
 
 # Function to convert 'high', 'medium', 'low' to numeric (3, 2, 1)
 def convert_categorical_columns(df, columns):
@@ -56,135 +51,6 @@ def clean_numeric_columns(df, numeric_columns):
     
     return df
 
-# Function to ensure all columns are numeric before applying any operations
-def ensure_numeric_columns(df, numeric_columns):
-    try:
-        df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
-    except Exception as e:
-        st.error(f"Error converting columns to numeric: {e}")
-        return None
-    
-    # Check if any non-numeric data remains
-    if df[numeric_columns].isnull().any().any():
-        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
-        df = df.dropna(subset=numeric_columns)
-    
-    return df
-
-# Function to run weighted linear regression
-def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
-    # First, convert the categorical columns ('high', 'medium', 'low') to numeric
-    df = convert_categorical_columns(df, categorical_columns)
-    
-    # Clean the numeric columns (remove unwanted symbols like $, %)
-    df = clean_numeric_columns(df, numeric_columns)
-    
-    # Ensure all numeric columns are converted to numeric
-    df = ensure_numeric_columns(df, numeric_columns)
-    if df is None:
-        st.error("There was an error converting the numeric columns.")
-        return
-
-    # Remove non-numeric columns like account numbers and names
-    df = df.drop(columns=['acct_numb', 'acct_name'])
-    
-    # Ensure all columns are numeric before applying any weights
-    st.write("Before applying weights, let's verify the data:")
-    st.dataframe(df.head())  # Show the data to check if all columns are numeric
-    
-    # Separate features (X) and target (y)
-    X = df.drop(columns=['ProdA_sales_2023'])
-    y = df['ProdA_sales_2023']
-
-    # Apply feature weights to the numeric columns
-    for feature in feature_weights:
-        if feature in X.columns:
-            st.write(f"Applying weight to feature: {feature}")
-            X[feature] = pd.to_numeric(X[feature], errors='coerce')  # Ensure it's numeric before multiplying
-            X[feature] *= feature_weights[feature]
-
-    # Scale the features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-
-    # Train linear regression model
-    lr = LinearRegression()
-    lr.fit(X_train, y_train)
-
-    # Make predictions on the test set
-    y_pred = lr.predict(X_test)
-    mse = mean_squared_error(y_test, y_pred)
-    rmse = mse ** 0.5
-
-    # Output results
-    results = {
-        'Feature': list(X.columns) + ['Intercept', 'RMSE'],
-        'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
-    }
-    results_df = pd.DataFrame(results)
-
-    # Display results
-    st.success("Linear Regression Results:")
-    st.table(results_df)
-
-# Function to run a Random Forest model
-def run_random_forest(df, feature_weights, numeric_columns, categorical_columns):
-    # Convert categorical columns ('high', 'medium', 'low') to numeric
-    df = convert_categorical_columns(df, categorical_columns)
-    
-    # Clean numeric columns (remove $, %, etc.)
-    df = clean_numeric_columns(df, numeric_columns)
-
-    # Ensure all numeric columns are converted to numeric
-    df = ensure_numeric_columns(df, numeric_columns)
-    if df is None:
-        st.error("There was an error converting the numeric columns.")
-        return
-
-    # Remove non-numeric columns like account numbers and names
-    df = df.drop(columns=['acct_numb', 'acct_name'])
-
-    # Prepare features and target
-    X = df.drop(columns=['ProdA_sales_2023'])
-    y = df['ProdA_sales_2023']
-
-    # Apply weights to the numeric columns
-    for feature in feature_weights:
-        if feature in X.columns:
-            st.write(f"Applying weight to feature: {feature}")
-            X[feature] = pd.to_numeric(X[feature], errors='coerce')  # Ensure it's numeric before multiplying
-            X[feature] *= feature_weights[feature]
-
-    # Scale the features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-
-    # Train Random Forest model
-    rf = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf.fit(X_train, y_train)
-
-    # Make predictions and calculate RMSE
-    y_pred_rf = rf.predict(X_test)
-    mse_rf = mean_squared_error(y_test, y_pred_rf)
-    rmse_rf = mse_rf ** 0.5
-
-    # Output feature importances and RMSE
-    feature_importances = pd.DataFrame({
-        'Feature': X.columns,
-        'Importance': rf.feature_importances_
-    }).sort_values(by='Importance', ascending=False)
-
-    # Display results
-    st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
-    st.write("Feature Importances:")
-    st.table(feature_importances)
-
 # Step 1: Upload CSV
 st.subheader("Step 1: Upload Your CSV File")
 uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
@@ -222,7 +88,7 @@ st.download_button(
     mime='text/csv'
 )
 
-# Default feature weights
+# Default feature weights (for potential use later)
 feature_weights = {
     'ProdA_sales_first12': 1.2,
     'ProdA_units_first12': 1.1,
@@ -255,18 +121,19 @@ numeric_columns = [
 
 categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
-# Process file upload and run regression
+# Process file upload and log issues
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.dataframe(df.head())  # Preview the raw data
     
-    st.subheader("Step 2: Run Your Weighted Linear Regression")
-    if st.button('Run Linear Regression'):
-        st.info("Running the regression model, please wait...")
-        run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns)
-        
-        # Button to run Random Forest after Linear Regression completes
-        st.subheader("Step 4: Run Your Random Forest Model")
-        if st.button('Run Random Forest Model'):
-            st.info("Running the Random Forest model, please wait...")
-            run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
+    # Display the raw data
+    st.dataframe(df.head())
+    
+    # Convert categorical columns (high, medium, low) to numeric
+    df = convert_categorical_columns(df, categorical_columns)
+    
+    # Clean numeric columns (removing $, %, etc.)
+    df = clean_numeric_columns(df, numeric_columns)
+    
+    # Display the cleaned data
+    st.write("Cleaned data:")
+    st.dataframe(df.head())
