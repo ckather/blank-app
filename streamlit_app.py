@@ -43,6 +43,21 @@ def clean_numeric_columns(df, numeric_columns):
     
     return df
 
+# Function to ensure all columns are numeric before applying any operations
+def ensure_numeric_columns(df, numeric_columns):
+    try:
+        df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
+    except Exception as e:
+        st.error(f"Error converting columns to numeric: {e}")
+        return None
+    
+    # Check if any non-numeric data remains
+    if df[numeric_columns].isnull().any().any():
+        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
+        df = df.dropna(subset=numeric_columns)
+    
+    return df
+
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
     # First, convert the categorical columns ('high', 'medium', 'low') to numeric
@@ -51,16 +66,14 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
     # Clean the numeric columns (remove unwanted symbols like $, %)
     df = clean_numeric_columns(df, numeric_columns)
     
+    # Ensure all numeric columns are converted to numeric
+    df = ensure_numeric_columns(df, numeric_columns)
+    if df is None:
+        st.error("There was an error converting the numeric columns.")
+        return
+
     # Remove non-numeric columns like account numbers and names
     df = df.drop(columns=['acct_numb', 'acct_name'])
-    
-    # Make sure all columns are numeric
-    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
-    
-    # Check for any remaining invalid rows
-    if df[numeric_columns].isnull().any().any():
-        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
-        df = df.dropna(subset=numeric_columns)
     
     # Separate features (X) and target (y)
     X = df.drop(columns=['ProdA_sales_2023'])
@@ -105,18 +118,16 @@ def run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
     
     # Clean numeric columns (remove $, %, etc.)
     df = clean_numeric_columns(df, numeric_columns)
-    
+
+    # Ensure all numeric columns are converted to numeric
+    df = ensure_numeric_columns(df, numeric_columns)
+    if df is None:
+        st.error("There was an error converting the numeric columns.")
+        return
+
     # Remove non-numeric columns like account numbers and names
     df = df.drop(columns=['acct_numb', 'acct_name'])
 
-    # Make sure all columns are numeric
-    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
-    
-    # Check for any remaining invalid rows
-    if df[numeric_columns].isnull().any().any():
-        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
-        df = df.dropna(subset=numeric_columns)
-    
     # Prepare features and target
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
