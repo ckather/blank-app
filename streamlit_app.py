@@ -8,91 +8,57 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
 # Set the title of the app
-st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Prediction Platform 💊</h1>", unsafe_allow_html=True)
-st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
-st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
+st.title("⚕️ Pathways Prediction Platform 💊")
+st.write("Predict drug adoption using advanced machine learning models")
 
-# Function to clean and convert 'high', 'medium', 'low' to 3, 2, 1
-def convert_high_medium_low(df, columns):
+# Function to explicitly convert categorical columns ('high', 'medium', 'low') to numeric values
+def convert_categorical_columns(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     
-    # Log to track problematic data
-    problematic_rows = {}
-
     for col in columns:
-        # Ensure column is in string format, force lowercase, and strip extra spaces
-        df[col] = df[col].astype(str).str.lower().str.strip()
-
-        # Output the unique values in the column to inspect
-        st.write(f"Unique values in column '{col}' before mapping:", df[col].unique())
-
-        # Map the values; if not in the mapping, mark them as NaN
+        # Force all values to lowercase strings and remove extra spaces
+        df[col] = df[col].str.lower().str.strip()
+        
+        # Convert 'high', 'medium', 'low' to 3, 2, 1
         df[col] = df[col].map(mapping)
-
-        # Check if any rows have problematic values (i.e., NaN after mapping)
+        
+        # Check if conversion was successful, if not, drop rows with invalid data
         if df[col].isna().any():
-            problematic_rows[col] = df[df[col].isna()][col]
-    
-    # If there are problematic rows, log them and output for the user to fix
-    if problematic_rows:
-        st.error(f"Conversion failed for some values. Please review the following rows:")
-        for col, rows in problematic_rows.items():
-            st.write(f"Problematic values in column '{col}':")
-            st.write(rows)
+            st.warning(f"Warning: Column '{col}' contains invalid values, those rows will be removed.")
+            df = df.dropna(subset=[col])
     
     return df
 
-# Function to clean numeric columns and handle symbols like $, %, and ,
+# Function to clean numeric columns and remove unwanted symbols like $, %, and ,
 def clean_numeric_columns(df, numeric_columns):
-    try:
-        st.write("### Original Data Preview:")
-        st.dataframe(df.head())  # Show the original data before cleaning
-
-        # Clean numeric columns by removing $, % and , symbols
-        for col in numeric_columns:
-            if df[col].dtype == 'object':  # Only process if it's a string (object type)
-                df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
-            # Convert to numeric (coerce invalid values to NaN)
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-
-        # Drop rows with NaN values in any of the numeric columns
-        df = df.dropna(subset=numeric_columns)
+    for col in numeric_columns:
+        # Remove dollar signs, commas, and percent symbols
+        df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
         
-        if df.empty:
-            st.error("All rows have been dropped due to invalid numeric data.")
-            return None
-
-        return df
+        # Convert to numeric (force invalid values to NaN)
+        df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    except Exception as e:
-        st.error(f"Error: {str(e)}. Please check your CSV file and ensure all numeric columns contain valid data.")
-        return None
+    # Drop rows with NaN values in any of the numeric columns
+    df = df.dropna(subset=numeric_columns)
+    
+    return df
 
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
-    # Convert categorical columns (high, medium, low) to 3, 2, 1 first
-    df = convert_high_medium_low(df, categorical_columns)
-
-    # Clean and validate numeric columns
+    # First, convert the categorical columns ('high', 'medium', 'low') to numeric
+    df = convert_categorical_columns(df, categorical_columns)
+    
+    # Clean the numeric columns (remove unwanted symbols like $, %)
     df = clean_numeric_columns(df, numeric_columns)
-    if df is None:
-        return
-
-    # Drop non-numeric columns like acct_numb and acct_name
+    
+    # Remove non-numeric columns like account numbers and names
     df = df.drop(columns=['acct_numb', 'acct_name'])
-
-    st.info("Summary of the data used for regression:")
-    st.dataframe(df.describe())
-
-    st.info("Correlation Matrix between variables:")
-    correlation_matrix = df.corr()
-    st.dataframe(correlation_matrix)
-
+    
     # Separate features (X) and target (y)
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
 
-    # Apply weights to numeric columns only
+    # Apply feature weights to the numeric columns
     for feature in feature_weights:
         if feature in X.columns:
             X[feature] *= feature_weights[feature]
@@ -113,56 +79,30 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
 
-    # Prepare results for display
+    # Output results
     results = {
         'Feature': list(X.columns) + ['Intercept', 'RMSE'],
         'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
     }
     results_df = pd.DataFrame(results)
 
+    # Display results
     st.success("Linear Regression Results:")
     st.table(results_df)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # Provide download options for results
-    st.subheader("Step 3: Download Results")
-    corr_csv = correlation_matrix.to_csv(index=True)
-    results_csv = results_df.to_csv(index=False)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button(
-            label="Download Correlation Matrix 📊",
-            data=corr_csv,
-            file_name='correlation_matrix.csv',
-            mime='text/csv'
-        )
-    with col2:
-        st.download_button(
-            label="Download Regression Results 📉",
-            data=results_csv,
-            file_name='regression_results.csv',
-            mime='text/csv'
-        )
-
 # Function to run a Random Forest model
 def run_random_forest(df, feature_weights, numeric_columns, categorical_columns):
-    st.subheader("Step 4: Running a Random Forest Machine Learning Model")
-
-    # Convert categorical columns (high, medium, low) to 3, 2, 1 first
-    df = convert_high_medium_low(df, categorical_columns)
-
-    # Clean and validate data
+    # Convert categorical columns ('high', 'medium', 'low') to numeric
+    df = convert_categorical_columns(df, categorical_columns)
+    
+    # Clean numeric columns (remove $, %, etc.)
     df = clean_numeric_columns(df, numeric_columns)
-    if df is None:
-        return
-
+    
     # Prepare features and target
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
 
-    # Apply weights to numeric columns only
+    # Apply weights to the numeric columns
     for feature in feature_weights:
         if feature in X.columns:
             X[feature] *= feature_weights[feature]
@@ -174,46 +114,25 @@ def run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
     # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-    # Random Forest Regressor
+    # Train Random Forest model
     rf = RandomForestRegressor(n_estimators=100, random_state=42)
     rf.fit(X_train, y_train)
 
-    # Predictions and performance evaluation
+    # Make predictions and calculate RMSE
     y_pred_rf = rf.predict(X_test)
     mse_rf = mean_squared_error(y_test, y_pred_rf)
     rmse_rf = mse_rf ** 0.5
 
-    st.success(f"Random Forest Model RMSE: {rmse_rf:.2f}")
-    st.write("Feature Importances:")
-    
-    # Feature Importances
+    # Output feature importances and RMSE
     feature_importances = pd.DataFrame({
         'Feature': X.columns,
         'Importance': rf.feature_importances_
     }).sort_values(by='Importance', ascending=False)
-    
-    st.table(feature_importances)
 
-    # Provide download options for Random Forest results
-    st.subheader("Download Random Forest Results")
-    rf_importance_csv = feature_importances.to_csv(index=False)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        st.download_button(
-            label="Download Random Forest Feature Importances 🌲",
-            data=rf_importance_csv,
-            file_name='random_forest_importances.csv',
-            mime='text/csv'
-        )
-    with col2:
-        rf_predictions_csv = pd.DataFrame({'Actual': y_test, 'Predicted': y_pred_rf}).to_csv(index=False)
-        st.download_button(
-            label="Download Random Forest Predictions 🔍",
-            data=rf_predictions_csv,
-            file_name='random_forest_predictions.csv',
-            mime='text/csv'
-        )
+    # Display results
+    st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
+    st.write("Feature Importances:")
+    st.table(feature_importances)
 
 # Step 1: Upload CSV
 st.subheader("Step 1: Upload Your CSV File")
@@ -236,9 +155,9 @@ csv_template = pd.DataFrame({
     'ProdA_units_2023': [300, 350, 320],
     'competition_sales_2023': [15000, 16000, 15500],
     'competition_units_2023': [150, 160, 155],
-    'analog_1_adopt': [0.6, 0.7, 0.65],
-    'analog_2_adopt': [0.5, 0.6, 0.55],
-    'analog_3_adopt': [0.4, 0.5, 0.45],
+    'analog_1_adopt': ['low', 'medium', 'high'],
+    'analog_2_adopt': ['medium', 'low', 'high'],
+    'analog_3_adopt': ['high', 'medium', 'low'],
     'quintile_ProdA_totalsales': [1, 2, 1],
     'quintile_ProdB_opportunity': [3, 4, 5],
     'ability_to_influence': [0.7, 0.8, 0.75],
