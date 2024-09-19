@@ -75,6 +75,10 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
     # Remove non-numeric columns like account numbers and names
     df = df.drop(columns=['acct_numb', 'acct_name'])
     
+    # Ensure all columns are numeric before applying any weights
+    st.write("Before applying weights, let's verify the data:")
+    st.dataframe(df.head())  # Show the data to check if all columns are numeric
+    
     # Separate features (X) and target (y)
     X = df.drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
@@ -82,6 +86,8 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
     # Apply feature weights to the numeric columns
     for feature in feature_weights:
         if feature in X.columns:
+            st.write(f"Applying weight to feature: {feature}")
+            X[feature] = pd.to_numeric(X[feature], errors='coerce')  # Ensure it's numeric before multiplying
             X[feature] *= feature_weights[feature]
 
     # Scale the features
@@ -135,6 +141,8 @@ def run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
     # Apply weights to the numeric columns
     for feature in feature_weights:
         if feature in X.columns:
+            st.write(f"Applying weight to feature: {feature}")
+            X[feature] = pd.to_numeric(X[feature], errors='coerce')  # Ensure it's numeric before multiplying
             X[feature] *= feature_weights[feature]
 
     # Scale the features
