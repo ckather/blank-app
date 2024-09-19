@@ -12,13 +12,22 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to convert 'high', 'medium', 'low' to 3, 2, 1
+# Function to convert 'high', 'medium', 'low' to 3, 2, 1 and handle unexpected values
 def convert_high_medium_low(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
+    
     for col in columns:
-        # Check if the column is a string and then apply the mapping
-        if df[col].dtype == 'object':
-            df[col] = df[col].str.lower().map(mapping)
+        # Ensure column is in string format, force lowercase, and strip extra spaces
+        df[col] = df[col].astype(str).str.lower().str.strip()
+        
+        # Convert to numeric using the mapping
+        df[col] = df[col].map(mapping)
+        
+        # Log any unexpected values that didn't convert
+        if df[col].isna().any():
+            st.warning(f"Warning: Column '{col}' contains unexpected values that were not converted. Please check your data.")
+            st.write(df[col].unique())  # Display unique values for the user to review
+
     return df
 
 # Function to clean numeric columns and handle symbols like $, %, and ,
@@ -34,10 +43,6 @@ def clean_numeric_columns(df, numeric_columns):
             # Convert to numeric (coerce invalid values to NaN)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # Check if any rows have been completely dropped due to invalid numeric data
-        if df[numeric_columns].isna().all(axis=1).any():
-            st.warning("Some rows were dropped due to invalid numeric data. Please check your CSV.")
-        
         # Drop rows with NaN values in any of the numeric columns
         df = df.dropna(subset=numeric_columns)
         
