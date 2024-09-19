@@ -12,11 +12,13 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale
+# Function to convert 'high', 'medium', 'low' to 3, 2, 1
 def convert_high_medium_low(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     for col in columns:
-        df[col] = df[col].str.lower().map(mapping)  # Convert strings to numbers
+        # Check if the column is a string and then apply the mapping
+        if df[col].dtype == 'object':
+            df[col] = df[col].str.lower().map(mapping)
     return df
 
 # Function to clean numeric columns and handle symbols like $, %, and ,
