@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 st.title("⚕️ Pathways Prediction Platform 💊")
 st.write("Predict drug adoption using advanced machine learning models")
 
-# Function to explicitly convert categorical columns ('high', 'medium', 'low') to numeric values
+# Function to convert 'high', 'medium', 'low' to numeric (3, 2, 1)
 def convert_categorical_columns(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     
@@ -53,6 +53,14 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
     
     # Remove non-numeric columns like account numbers and names
     df = df.drop(columns=['acct_numb', 'acct_name'])
+    
+    # Make sure all columns are numeric
+    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
+    
+    # Check for any remaining invalid rows
+    if df[numeric_columns].isnull().any().any():
+        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
+        df = df.dropna(subset=numeric_columns)
     
     # Separate features (X) and target (y)
     X = df.drop(columns=['ProdA_sales_2023'])
@@ -97,6 +105,17 @@ def run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
     
     # Clean numeric columns (remove $, %, etc.)
     df = clean_numeric_columns(df, numeric_columns)
+    
+    # Remove non-numeric columns like account numbers and names
+    df = df.drop(columns=['acct_numb', 'acct_name'])
+
+    # Make sure all columns are numeric
+    df[numeric_columns] = df[numeric_columns].apply(pd.to_numeric, errors='coerce')
+    
+    # Check for any remaining invalid rows
+    if df[numeric_columns].isnull().any().any():
+        st.error("Error: Some numeric columns still contain invalid data. These rows will be dropped.")
+        df = df.dropna(subset=numeric_columns)
     
     # Prepare features and target
     X = df.drop(columns=['ProdA_sales_2023'])
