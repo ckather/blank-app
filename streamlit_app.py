@@ -31,12 +31,25 @@ def convert_categorical_columns(df, columns):
 
 # Function to clean numeric columns and remove unwanted symbols like $, %, and ,
 def clean_numeric_columns(df, numeric_columns):
+    non_numeric_data = {}
     for col in numeric_columns:
         # Remove dollar signs, commas, and percent symbols
         df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
         
         # Convert to numeric (force invalid values to NaN)
         df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # Log non-numeric data in numeric columns
+        non_numeric_rows = df[df[col].isna()][col]
+        if len(non_numeric_rows) > 0:
+            non_numeric_data[col] = non_numeric_rows
+
+    # If there are non-numeric values, log them to the user
+    if non_numeric_data:
+        st.warning("The following non-numeric values were found and will be removed:")
+        for col, rows in non_numeric_data.items():
+            st.write(f"In column '{col}':")
+            st.write(rows)
     
     # Drop rows with NaN values in any of the numeric columns
     df = df.dropna(subset=numeric_columns)
