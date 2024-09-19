@@ -17,17 +17,20 @@ def convert_high_medium_low(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     
     for col in columns:
+        # Log original column values before conversion
+        st.write(f"Original values in column '{col}':", df[col].unique())
+        
         # Ensure column is in string format, force lowercase, and strip extra spaces
         df[col] = df[col].astype(str).str.lower().str.strip()
-        
-        # Convert to numeric using the mapping
+
+        # Perform conversion and handle unexpected values
         df[col] = df[col].map(mapping)
         
-        # Log any unexpected values that didn't convert
+        # If any value could not be mapped, log it
         if df[col].isna().any():
-            st.warning(f"Warning: Column '{col}' contains unexpected values that were not converted. Please check your data.")
-            st.write(df[col].unique())  # Display unique values for the user to review
-
+            st.error(f"Error in column '{col}': Some values could not be converted. Check the original data.")
+            st.write(f"Unique unmapped values in column '{col}':", df[df[col].isna()][col].unique())
+            
     return df
 
 # Function to clean numeric columns and handle symbols like $, %, and ,
