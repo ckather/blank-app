@@ -12,6 +12,13 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
+# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale first
+def convert_high_medium_low(df, columns):
+    mapping = {'high': 3, 'medium': 2, 'low': 1}
+    for col in columns:
+        df[col] = df[col].str.lower().map(mapping)
+    return df
+
 # Function to clean numeric columns and handle symbols
 def clean_numeric_columns(df, numeric_columns):
     try:
@@ -41,22 +48,15 @@ def clean_numeric_columns(df, numeric_columns):
         st.error(f"Error: {str(e)}. Please check your CSV file and ensure all numeric columns contain valid data.")
         return None
 
-# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale
-def convert_high_medium_low(df, columns):
-    mapping = {'high': 3, 'medium': 2, 'low': 1}
-    for col in columns:
-        df[col] = df[col].str.lower().map(mapping)
-    return df
-
 # Function to run weighted linear regression
 def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
+    # Convert categorical columns (high, medium, low) to 3, 2, 1 first
+    df = convert_high_medium_low(df, categorical_columns)
+
     # Clean and validate numeric columns
     df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
-
-    # Convert categorical columns (high, medium, low) to 3, 2, 1
-    df = convert_high_medium_low(df, categorical_columns)
 
     # Drop non-numeric columns like acct_numb and acct_name
     df = df.drop(columns=['acct_numb', 'acct_name'])
@@ -130,13 +130,13 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns, categor
 def run_random_forest(df, feature_weights, numeric_columns, categorical_columns):
     st.subheader("Step 4: Running a Random Forest Machine Learning Model")
 
+    # Convert categorical columns (high, medium, low) to 3, 2, 1 first
+    df = convert_high_medium_low(df, categorical_columns)
+
     # Clean and validate data
     df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
-
-    # Convert categorical columns (high, medium, low) to 3, 2, 1
-    df = convert_high_medium_low(df, categorical_columns)
 
     # Prepare features and target
     X = df.drop(columns=['ProdA_sales_2023'])
