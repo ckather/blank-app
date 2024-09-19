@@ -12,25 +12,31 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to convert 'high', 'medium', 'low' to 3, 2, 1 and handle unexpected values
+# Function to clean and convert 'high', 'medium', 'low' to 3, 2, 1
 def convert_high_medium_low(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     
+    # Log to track problematic data
+    problematic_rows = {}
+
     for col in columns:
-        # Log original column values before conversion
-        st.write(f"Original values in column '{col}':", df[col].unique())
-        
         # Ensure column is in string format, force lowercase, and strip extra spaces
         df[col] = df[col].astype(str).str.lower().str.strip()
 
-        # Perform conversion and handle unexpected values
+        # Map the values; if not in the mapping, mark them as NaN
         df[col] = df[col].map(mapping)
-        
-        # If any value could not be mapped, log it
+
+        # Check if any rows have problematic values (i.e., NaN after mapping)
         if df[col].isna().any():
-            st.error(f"Error in column '{col}': Some values could not be converted. Check the original data.")
-            st.write(f"Unique unmapped values in column '{col}':", df[df[col].isna()][col].unique())
-            
+            problematic_rows[col] = df[df[col].isna()][col]
+    
+    # If there are problematic rows, log them and output for the user to fix
+    if problematic_rows:
+        st.error(f"Conversion failed for some values. Please review the following rows:")
+        for col, rows in problematic_rows.items():
+            st.write(f"Problematic values in column '{col}':")
+            st.write(rows)
+    
     return df
 
 # Function to clean numeric columns and handle symbols like $, %, and ,
@@ -291,3 +297,4 @@ if uploaded_file is not None:
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
             run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
+
