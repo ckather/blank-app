@@ -18,6 +18,10 @@ def clean_numeric_columns(df, numeric_columns):
         st.write("### Original Data Preview:")
         st.dataframe(df.head())  # Show the original data before cleaning
         
+        # Check data types of columns before cleaning
+        st.write("### Data Types Before Cleaning:")
+        st.dataframe(df.dtypes)
+        
         # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
         for col in numeric_columns:
             df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
