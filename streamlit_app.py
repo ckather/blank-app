@@ -12,7 +12,7 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to clean only numeric columns
+# Function to clean only numeric columns and identify invalid data
 def clean_numeric_columns(df, numeric_columns):
     try:
         st.write("### Original Data Preview:")
@@ -21,12 +21,24 @@ def clean_numeric_columns(df, numeric_columns):
         # Check data types of columns before cleaning
         st.write("### Data Types Before Cleaning:")
         st.dataframe(df.dtypes)
-        
+
+        invalid_data = {}  # Dictionary to store invalid values for each column
+
         # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
         for col in numeric_columns:
+            # Log any invalid values that will be dropped
+            invalid = df[col][~df[col].str.replace(r'[\$,]', '', regex=True).str.isnumeric()]
+            if not invalid.empty:
+                invalid_data[col] = invalid.tolist()
+
+            # Clean the column and convert to numeric
             df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
             df[col] = pd.to_numeric(df[col], errors='coerce')  # Convert to numeric, set invalid parsing as NaN
-        
+
+        if invalid_data:
+            st.write("### Invalid Data (to be dropped):")
+            st.json(invalid_data)  # Display invalid values that were found
+
         st.write("### Data After Numeric Cleaning (before NaN removal):")
         st.dataframe(df[numeric_columns].head())  # Show cleaned numeric columns
         
@@ -34,7 +46,7 @@ def clean_numeric_columns(df, numeric_columns):
         df = df.dropna(subset=numeric_columns)
         
         if df.empty:
-            st.error("All rows have been dropped due to invalid numeric data.")
+            st.error("All rows have been dropped due to invalid numeric data. Please correct the invalid values above and try again.")
             return None
         
         return df
