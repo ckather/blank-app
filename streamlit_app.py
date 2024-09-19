@@ -7,41 +7,42 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
-# Set the sleek title of the app
+# Set the title of the app
 st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Prediction Platform 💊</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale first
+# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale
 def convert_high_medium_low(df, columns):
     mapping = {'high': 3, 'medium': 2, 'low': 1}
     for col in columns:
-        df[col] = df[col].str.lower().map(mapping)
+        df[col] = df[col].str.lower().map(mapping)  # Convert strings to numbers
     return df
 
-# Function to clean numeric columns and handle symbols
+# Function to clean numeric columns and handle symbols like $, %, and ,
 def clean_numeric_columns(df, numeric_columns):
     try:
         st.write("### Original Data Preview:")
         st.dataframe(df.head())  # Show the original data before cleaning
-        
-        invalid_data = {}  # Dictionary to store invalid values for each column
 
-        # Clean only the numeric columns by removing $, % and , symbols
+        # Clean numeric columns by removing $, % and , symbols
         for col in numeric_columns:
             if df[col].dtype == 'object':  # Only process if it's a string (object type)
-                # Replace symbols and handle non-numeric values
                 df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
-            # Convert to numeric, invalid parsing results in NaN
+            # Convert to numeric (coerce invalid values to NaN)
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # Drop rows with NaN values in the numeric columns
+        # Check if any rows have been completely dropped due to invalid numeric data
+        if df[numeric_columns].isna().all(axis=1).any():
+            st.warning("Some rows were dropped due to invalid numeric data. Please check your CSV.")
+        
+        # Drop rows with NaN values in any of the numeric columns
         df = df.dropna(subset=numeric_columns)
         
         if df.empty:
             st.error("All rows have been dropped due to invalid numeric data.")
             return None
-        
+
         return df
     
     except Exception as e:
