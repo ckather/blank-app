@@ -12,43 +12,27 @@ st.markdown("<h1 style='text-align: center; color: #2E86C1;'>⚕️ Pathways Pre
 st.markdown("<h4 style='text-align: center;'>Predict drug adoption using advanced machine learning models</h4>", unsafe_allow_html=True)
 st.markdown("<hr style='border-top: 3px solid #2E86C1;'>", unsafe_allow_html=True)
 
-# Function to clean only numeric columns and identify invalid data
+# Function to clean numeric columns and handle symbols
 def clean_numeric_columns(df, numeric_columns):
     try:
         st.write("### Original Data Preview:")
         st.dataframe(df.head())  # Show the original data before cleaning
         
-        # Check data types of columns before cleaning
-        st.write("### Data Types Before Cleaning:")
-        st.dataframe(df.dtypes)
-
         invalid_data = {}  # Dictionary to store invalid values for each column
 
-        # Clean only the numeric columns by removing commas, dollar signs, and percentage signs
+        # Clean only the numeric columns by removing $, % and , symbols
         for col in numeric_columns:
-            if df[col].dtype == 'object':  # Check if column is string (object type)
-                # Log any invalid values that will be dropped
-                invalid = df[col][~df[col].str.replace(r'[\$,]', '', regex=True).str.isnumeric()]
-                if not invalid.empty:
-                    invalid_data[col] = invalid.tolist()
-
-                # Clean the column and convert to numeric
+            if df[col].dtype == 'object':  # Only process if it's a string (object type)
+                # Replace symbols and handle non-numeric values
                 df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
-            # Convert to numeric, set invalid parsing as NaN
+            # Convert to numeric, invalid parsing results in NaN
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        if invalid_data:
-            st.write("### Invalid Data (to be dropped):")
-            st.json(invalid_data)  # Display invalid values that were found
-
-        st.write("### Data After Numeric Cleaning (before NaN removal):")
-        st.dataframe(df[numeric_columns].head())  # Show cleaned numeric columns
-        
         # Drop rows with NaN values in the numeric columns
         df = df.dropna(subset=numeric_columns)
         
         if df.empty:
-            st.error("All rows have been dropped due to invalid numeric data. Please correct the invalid values above and try again.")
+            st.error("All rows have been dropped due to invalid numeric data.")
             return None
         
         return df
@@ -57,13 +41,23 @@ def clean_numeric_columns(df, numeric_columns):
         st.error(f"Error: {str(e)}. Please check your CSV file and ensure all numeric columns contain valid data.")
         return None
 
+# Function to convert 'high', 'medium', 'low' to 3, 2, 1 scale
+def convert_high_medium_low(df, columns):
+    mapping = {'high': 3, 'medium': 2, 'low': 1}
+    for col in columns:
+        df[col] = df[col].str.lower().map(mapping)
+    return df
+
 # Function to run weighted linear regression
-def run_weighted_linear_regression(df, feature_weights, numeric_columns):
-    # Clean and validate only the numeric columns
+def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
+    # Clean and validate numeric columns
     df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
-    
+
+    # Convert categorical columns (high, medium, low) to 3, 2, 1
+    df = convert_high_medium_low(df, categorical_columns)
+
     # Drop non-numeric columns like acct_numb and acct_name
     df = df.drop(columns=['acct_numb', 'acct_name'])
 
@@ -133,13 +127,16 @@ def run_weighted_linear_regression(df, feature_weights, numeric_columns):
         )
 
 # Function to run a Random Forest model
-def run_random_forest(df, feature_weights, numeric_columns):
+def run_random_forest(df, feature_weights, numeric_columns, categorical_columns):
     st.subheader("Step 4: Running a Random Forest Machine Learning Model")
 
     # Clean and validate data
     df = clean_numeric_columns(df, numeric_columns)
     if df is None:
         return
+
+    # Convert categorical columns (high, medium, low) to 3, 2, 1
+    df = convert_high_medium_low(df, categorical_columns)
 
     # Prepare features and target
     X = df.drop(columns=['ProdA_sales_2023'])
@@ -258,14 +255,15 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
-# List of numeric columns to clean
+# List of numeric and categorical columns
 numeric_columns = [
     'ProdA_sales_first12', 'ProdA_units_first12', 'competition_sales_first12', 'competition_units_first12',
     'ProdA_sales_2022', 'ProdA_units_2022', 'competition_sales_2022', 'competition_units_2022',
     'ProdA_sales_2023', 'Total 2022 and 2023', 'ProdA_units_2023', 'competition_sales_2023',
-    'competition_units_2023', 'analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt', 'quintile_ProdA_totalsales',
-    'quintile_ProdB_opportunity', 'ability_to_influence', 'percentage_340B_adoption'
+    'competition_units_2023', 'percentage_340B_adoption'
 ]
+
+categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
 # Process file upload and run regression
 if uploaded_file is not None:
@@ -275,11 +273,10 @@ if uploaded_file is not None:
     st.subheader("Step 2: Run Your Weighted Linear Regression")
     if st.button('Run Linear Regression'):
         st.info("Running the regression model, please wait...")
-        run_weighted_linear_regression(df, feature_weights, numeric_columns)
+        run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns)
         
         # Button to run Random Forest after Linear Regression completes
         st.subheader("Step 4: Run Your Random Forest Model")
         if st.button('Run Random Forest Model'):
             st.info("Running the Random Forest model, please wait...")
-            run_random_forest(df, feature_weights, numeric_columns)
-
+            run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
