@@ -1,61 +1,236 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import StandardScaler
 
-# Set the title of the app
-st.title("💊 Pathways Prediction Platform")
+# Set up CSS styles for a sleeker look
+st.markdown(
+    """
+    <style>
+    .centered-logo {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+        padding-bottom: 20px;
+    }
+    
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    .css-1aumxhk {
+        background-color: #f0f2f6; /* Custom background color */
+    }
+
+    .title-text {
+        font-family: 'Arial', sans-serif;
+        font-size: 48px;
+        font-weight: bold;
+        color: #004080; /* Custom title color */
+        text-align: center;
+    }
+
+    .subheader {
+        font-size: 24px;
+        color: #004080;
+        margin-bottom: 20px;
+    }
+
+    .stButton>button {
+        background-color: #004080;
+        color: white;
+        border-radius: 5px;
+        padding: 0.5rem;
+        font-size: 16px;
+    }
+    </style>
+    """, unsafe_allow_html=True
+)
+
+# Add the logo at the top, replace with the actual path to the logo
+st.image("path/to/your/logo.png", use_column_width=True, caption="Bristol Myers Squibb", class_="centered-logo")
+
+# Title with custom CSS styling
+st.markdown('<div class="title-text">Pathways Prediction Platform</div>', unsafe_allow_html=True)
+
 st.write("Upload your data and explore data types and non-numeric values.")
 
-# Initialize session state for selected model
-if 'selected_model' not in st.session_state:
-    st.session_state['selected_model'] = None
+# Function to convert 'high', 'medium', 'low' to numeric (3, 2, 1)
+def convert_categorical_columns(df, columns):
+    mapping = {'high': 3, 'medium': 2, 'low': 1}
+    
+    for col in columns:
+        df[col] = df[col].str.lower().str.strip()
+        df[col] = df[col].map(mapping)
+        if df[col].isna().any():
+            st.warning(f"Warning: Column '{col}' contains invalid values, those rows will be removed.")
+            df = df.dropna(subset=[col])
+    
+    return df
 
-# Step 1: Upload CSV and download template
+# Function to clean numeric columns and remove unwanted symbols
+def clean_numeric_columns(df, numeric_columns):
+    non_numeric_data = {}
+    for col in numeric_columns:
+        df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        non_numeric_rows = df[df[col].isna()][col]
+        if len(non_numeric_rows) > 0:
+            non_numeric_data[col] = non_numeric_rows
+
+    if non_numeric_data:
+        st.warning("The following non-numeric values were found and will be removed:")
+        for col, rows in non_numeric_data.items():
+            st.write(f"In column '{col}':")
+            st.write(rows)
+    
+    df = df.dropna(subset=numeric_columns)
+    
+    return df
+
+# Step 1: Upload CSV
 st.subheader("Step 1: Upload Your CSV File")
+uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
 
-# Provide the download button for the CSV template
+# Provide template download button
+csv_template = pd.DataFrame({
+    'acct_numb': ['123', '456', '789'],
+    'acct_name': ['Account A', 'Account B', 'Account C'],
+    'ProdA_sales_first12': [10000, 15000, 12000],
+    'ProdA_units_first12': [100, 150, 120],
+    'competition_sales_first12': [5000, 6000, 5500],
+    'competition_units_first12': [50, 60, 55],
+    'ProdA_sales_2022': [20000, 25000, 22000],
+    'ProdA_units_2022': [200, 250, 220],
+    'competition_sales_2022': [10000, 11000, 10500],
+    'competition_units_2022': [100, 110, 105],
+    'ProdA_sales_2023': [30000, 35000, 32000],
+    'Total 2022 and 2023': [50000, 60000, 54000],
+    'ProdA_units_2023': [300, 350, 320],
+    'competition_sales_2023': [15000, 16000, 15500],
+    'competition_units_2023': [150, 160, 155],
+    'analog_1_adopt': ['low', 'medium', 'high'],
+    'analog_2_adopt': ['medium', 'low', 'high'],
+    'analog_3_adopt': ['high', 'medium', 'low'],
+    'quintile_ProdA_totalsales': [1, 2, 1],
+    'quintile_ProdB_opportunity': [3, 4, 5],
+    'ability_to_influence': [0.7, 0.8, 0.75],
+    'percentage_340B_adoption': [0.2, 0.3, 0.25]
+}).to_csv(index=False)
+
 st.download_button(
-    label="Need a template? Download the CSV Here 📄",
-    data=pd.DataFrame({
-        'acct_numb': ['123', '456', '789'],
-        'acct_name': ['Account A', 'Account B', 'Account C'],
-        'ProdA_sales_first12': [10000, 15000, 12000],
-        'ProdA_units_first12': [100, 150, 120],
-        'competition_sales_first12': [5000, 6000, 5500],
-        'competition_units_first12': [50, 60, 55],
-        'ProdA_sales_2022': [20000, 25000, 22000],
-        'ProdA_units_2022': [200, 250, 220],
-        'competition_sales_2022': [10000, 11000, 10500],
-        'competition_units_2022': [100, 110, 105],
-        'ProdA_sales_2023': [30000, 35000, 32000],
-        'Total 2022 and 2023': [50000, 60000, 54000],
-        'ProdA_units_2023': [300, 350, 320],
-        'competition_sales_2023': [15000, 16000, 15500],
-        'competition_units_2023': [150, 160, 155],
-        'analog_1_adopt': ['low', 'medium', 'high'],
-        'analog_2_adopt': ['medium', 'low', 'high'],
-        'analog_3_adopt': ['high', 'medium', 'low'],
-        'quintile_ProdA_totalsales': [1, 2, 1],
-        'quintile_ProdB_opportunity': [3, 4, 5],
-        'ability_to_influence': [0.7, 0.8, 0.75],
-        'percentage_340B_adoption': [0.2, 0.3, 0.25]
-    }).to_csv(index=False),
+    label="Download CSV Template 📄",
+    data=csv_template,
     file_name='csv_template.csv',
     mime='text/csv'
 )
 
-# Add a little space for better UI design
-st.markdown("<br>", unsafe_allow_html=True)
+# List of numeric and categorical columns
+numeric_columns = [
+    'ProdA_sales_first12', 'ProdA_units_first12', 'competition_sales_first12', 'competition_units_first12',
+    'ProdA_sales_2022', 'ProdA_units_2022', 'competition_sales_2022', 'competition_units_2022',
+    'ProdA_sales_2023', 'Total 2022 and 2023', 'ProdA_units_2023', 'competition_sales_2023',
+    'competition_units_2023', 'percentage_340B_adoption'
+]
 
-# Upload box that spans full width
-uploaded_file = st.file_uploader("Now, choose your CSV file:", type="csv", label_visibility="visible")
+categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
-# Default feature weights (for potential use later)
+# Process file upload and log issues
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    
+    # Display the raw data
+    st.dataframe(df.head())
+    
+    # Convert categorical columns (high, medium, low) to numeric
+    df = convert_categorical_columns(df, categorical_columns)
+    
+    # Clean numeric columns (removing $, %, etc.)
+    df = clean_numeric_columns(df, numeric_columns)
+    
+    # Display the cleaned data
+    st.write("Cleaned data:")
+    st.dataframe(df.head())
+
+# Function to run weighted linear regression
+def run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns):
+    df = convert_categorical_columns(df, categorical_columns)
+    df = clean_numeric_columns(df, numeric_columns)
+    
+    df = df.drop(columns=['acct_numb', 'acct_name'])
+
+    X = df.drop(columns=['ProdA_sales_2023'])
+    y = df['ProdA_sales_2023']
+
+    for feature in feature_weights:
+        if feature in X.columns:
+            X[feature] = pd.to_numeric(X[feature], errors='coerce')  
+            X[feature] *= feature_weights[feature]
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+    lr = LinearRegression()
+    lr.fit(X_train, y_train)
+
+    y_pred = lr.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = mse ** 0.5
+
+    results = {
+        'Feature': list(X.columns) + ['Intercept', 'RMSE'],
+        'Coefficient': list(lr.coef_) + [lr.intercept_, rmse]
+    }
+    results_df = pd.DataFrame(results)
+
+    st.success("Linear Regression Results:")
+    st.table(results_df)
+
+# Function to run a Random Forest model
+def run_random_forest(df, feature_weights, numeric_columns, categorical_columns):
+    df = convert_categorical_columns(df, categorical_columns)
+    df = clean_numeric_columns(df, numeric_columns)
+
+    df = df.drop(columns=['acct_numb', 'acct_name'])
+
+    X = df.drop(columns=['ProdA_sales_2023'])
+    y = df['ProdA_sales_2023']
+
+    for feature in feature_weights:
+        if feature in X.columns:
+            X[feature] = pd.to_numeric(X[feature], errors='coerce')  
+            X[feature] *= feature_weights[feature]
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+    rf = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+
+    y_pred_rf = rf.predict(X_test)
+    mse_rf = mean_squared_error(y_test, y_pred_rf)
+    rmse_rf = mse_rf ** 0.5
+
+    feature_importances = pd.DataFrame({
+        'Feature': X.columns,
+        'Importance': rf.feature_importances_
+    }).sort_values(by='Importance', ascending=False)
+
+    st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
+    st.write("Feature Importances:")
+    st.table(feature_importances)
+
+# Default feature weights for linear regression
 feature_weights = {
     'ProdA_sales_first12': 1.2,
     'ProdA_units_first12': 1.1,
@@ -78,173 +253,11 @@ feature_weights = {
     'percentage_340B_adoption': 0.6
 }
 
-# List of numeric and categorical columns
-numeric_columns = [
-    'ProdA_sales_first12', 'ProdA_units_first12', 'competition_sales_first12', 'competition_units_first12',
-    'ProdA_sales_2022', 'ProdA_units_2022', 'competition_sales_2022', 'competition_units_2022',
-    'ProdA_sales_2023', 'Total 2022 and 2023', 'ProdA_units_2023', 'competition_sales_2023',
-    'competition_units_2023', 'percentage_340B_adoption'
-]
+# Step 2: Run regression models (optional depending on file upload)
+st.subheader("Step 2: Run Your Weighted Linear Regression")
+if uploaded_file is not None and st.button('Run Linear Regression'):
+    run_weighted_linear_regression(df, feature_weights, numeric_columns, categorical_columns)
 
-categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
-
-# Function to run linear regression, show scatterplot, and download results
-def run_linear_regression(df, numeric_columns):
-    X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
-    y = df['ProdA_sales_2023']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Train linear regression model
-    lr = LinearRegression()
-    lr.fit(X_train, y_train)
-    
-    # Predictions
-    y_pred = lr.predict(X_test)
-    
-    # Calculate metrics
-    mse = mean_squared_error(y_test, y_pred)
-    rmse = mse ** 0.5
-    coefficients = lr.coef_
-    intercept = lr.intercept_
-
-    # Scatterplot: Actual vs Predicted
-    fig, ax = plt.subplots()
-    ax.scatter(y_test, y_pred)
-    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
-    ax.set_xlabel('Actual')
-    ax.set_ylabel('Predicted')
-    ax.set_title('Linear Regression: Actual vs Predicted')
-
-    # Display the plot
-    st.pyplot(fig)
-    
-    # Display metrics
-    st.write("### Linear Regression Metrics")
-    st.write(f"**RMSE**: {rmse:.2f}")
-    st.write(f"**Intercept**: {intercept:.2f}")
-    st.write("**Coefficients**:")
-    for i, col in enumerate(X.columns):
-        st.write(f"- {col}: {coefficients[i]:.2f}")
-
-    # Tutorial-style explanation in simple English
-    st.write("### What do these numbers mean?")
-    st.write("""
-    - **RMSE (Root Mean Squared Error)**: This tells you how much your predictions deviate, on average, from the actual values. A lower RMSE means your predictions are more accurate.
-    - **Intercept**: This is the baseline prediction when all other features are zero. It shows the predicted sales when the input factors don’t contribute.
-    - **Coefficients**: Each coefficient shows how much the sales prediction will change if you increase the corresponding feature by 1 unit. Positive values indicate that increasing the feature increases sales, while negative values indicate a decrease in sales.
-    """)
-
-    # Prepare results for download
-    results = {
-        'Feature': X.columns.tolist() + ['Intercept', 'RMSE'],
-        'Value': coefficients.tolist() + [intercept, rmse]
-    }
-    results_df = pd.DataFrame(results)
-
-    # Add a button to download the results
-    st.download_button(
-        label="Download Linear Regression Results 📥",
-        data=results_df.to_csv(index=False),
-        file_name='linear_regression_results.csv',
-        mime='text/csv'
-    )
-
-# Function to run random forest
-def run_random_forest(df, numeric_columns):
-    X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
-    y = df['ProdA_sales_2023']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    rf = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf.fit(X_train, y_train)
-    
-    y_pred_rf = rf.predict(X_test)
-    mse_rf = mean_squared_error(y_test, y_pred_rf)
-    rmse_rf = mse_rf ** 0.5
-    
-    # Display Random Forest metrics
-    st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
-
-# Function to run weighted scoring model (example logic)
-def run_weighted_scoring_model(df):
-    # Placeholder logic for weighted scoring model
-    st.write("Running the weighted scoring model...")
-
-# Process file upload and log issues
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    
-    # Display the raw data
-    st.dataframe(df.head())
-    
-    # Convert categorical columns (high, medium, low) to numeric
-    def convert_categorical_columns(df, columns):
-        mapping = {'high': 3, 'medium': 2, 'low': 1}
-        for col in columns:
-            df[col] = df[col].str.lower().str.strip().map(mapping)
-            if df[col].isna().any():
-                st.warning(f"Column '{col}' contains invalid values and those rows will be dropped.")
-                df = df.dropna(subset=[col])
-        return df
-    
-    df = convert_categorical_columns(df, categorical_columns)
-    
-    # Clean numeric columns (removing $, %, etc.)
-    def clean_numeric_columns(df, numeric_columns):
-        non_numeric_data = {}
-        for col in numeric_columns:
-            df[col] = df[col].replace({'\$': '', ',': '', '%': ''}, regex=True)
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            non_numeric_rows = df[df[col].isna()][col]
-            if len(non_numeric_rows) > 0:
-                non_numeric_data[col] = non_numeric_rows
-        if non_numeric_data:
-            st.warning("Non-numeric values were found and will be removed:")
-            for col, rows in non_numeric_data.items():
-                st.write(f"In column '{col}':")
-                st.write(rows)
-        df = df.dropna(subset=numeric_columns)
-        return df
-    
-    df = clean_numeric_columns(df, numeric_columns)
-    
-    # Display the cleaned data
-    st.write("Cleaned data:")
-    st.dataframe(df.head())
-    
-    # Step: Ask user which model to run
-    st.subheader("Step 2: Choose a Model")
-    
-    # Track user selection
-    selected_model = st.session_state['selected_model']
-    
-    if selected_model is None:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button('Run Linear Regression'):
-                st.session_state['selected_model'] = 'linear_regression'
-        with col2:
-            if st.button('Run Random Forest'):
-                st.session_state['selected_model'] = 'random_forest'
-        with col3:
-            if st.button('Run Weighted Scoring Model'):
-                st.session_state['selected_model'] = 'weighted_scoring_model'
-
-    # When the user selects a model, display only the selected one
-    if st.session_state['selected_model'] == 'linear_regression':
-        st.info("Running Linear Regression...")
-        run_linear_regression(df, numeric_columns)
-    elif st.session_state['selected_model'] == 'random_forest':
-        st.info("Running Random Forest...")
-        run_random_forest(df, numeric_columns)
-    elif st.session_state['selected_model'] == 'weighted_scoring_model':
-        st.info("Running Weighted Scoring Model...")
-        run_weighted_scoring_model(df)
-
-    # Add a "Run a New Model" button after the model has run
-    if st.session_state['selected_model'] is not None:
-        st.markdown("<hr>", unsafe_allow_html=True)
-        if st.button("Run a New Model 🔄"):
-            st.session_state['selected_model'] = None  # Reset the session state
-            # Clear the content below the model selection but don't refresh the page
-            st.experimental_set_query_params()  # Clear content from previous run
+st.subheader("Step 4: Run Your Random Forest Model")
+if uploaded_file is not None and st.button('Run Random Forest'):
+    run_random_forest(df, feature_weights, numeric_columns, categorical_columns)
