@@ -9,8 +9,21 @@ st.write("Upload your data and explore data types and non-numeric values.")
 # Step 1: Upload CSV and download template
 st.subheader("Step 1: Upload Your CSV File")
 
-# Provide template download button next to the subheader
+# Create a horizontal layout for download and upload buttons, but not cramped
+st.markdown("""
+<style>
+div[data-testid="column"] {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Create two columns with equal width
 col1, col2 = st.columns([1, 1])
+
+# In the first column, show the download button
 with col1:
     st.download_button(
         label="Download CSV Template 📄",
@@ -42,7 +55,7 @@ with col1:
         mime='text/csv'
     )
 
-# In the second column, show the upload button
+# In the second column, show the file upload button
 with col2:
     uploaded_file = st.file_uploader("Choose your CSV file", type="csv")
 
