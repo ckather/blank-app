@@ -257,6 +257,7 @@ if uploaded_file is not None:
     # Add a refresh button at the bottom after the model has run
     if st.session_state['selected_model'] is not None:
         st.markdown('<div class="fixed-refresh">', unsafe_allow_html=True)
-        if st.button("Refresh Page 🔄"):
-            st.experimental_rerun()
+        if st.button("Run a New Model 🔄"):
+            st.session_state['selected_model'] = None  # Reset session state
+            st.experimental_rerun()  # Refresh the app
         st.markdown('</div>', unsafe_allow_html=True)
