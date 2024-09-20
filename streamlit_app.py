@@ -1,6 +1,7 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
@@ -9,6 +10,10 @@ from sklearn.metrics import mean_squared_error
 # Set the title of the app
 st.title("⚕️ Pathways Prediction Platform 💊")
 st.write("Upload your data and explore data types and non-numeric values.")
+
+# Initialize session state for selected model
+if 'selected_model' not in st.session_state:
+    st.session_state['selected_model'] = None
 
 # Step 1: Upload CSV and download template
 st.subheader("Step 1: Upload Your CSV File")
@@ -83,28 +88,57 @@ numeric_columns = [
 
 categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
-# Function to run linear regression
+# Function to run linear regression and show scatterplot with metrics
 def run_linear_regression(df, numeric_columns):
     X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
+    # Train linear regression model
     lr = LinearRegression()
     lr.fit(X_train, y_train)
+    
+    # Predictions
     y_pred = lr.predict(X_test)
+    
+    # Calculate metrics
     mse = mean_squared_error(y_test, y_pred)
     rmse = mse ** 0.5
-    st.success(f"Linear Regression RMSE: {rmse:.2f}")
+    coefficients = lr.coef_
+    intercept = lr.intercept_
+
+    # Scatterplot: Actual vs Predicted
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, y_pred)
+    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+    ax.set_xlabel('Actual')
+    ax.set_ylabel('Predicted')
+    ax.set_title('Linear Regression: Actual vs Predicted')
+
+    # Display the plot
+    st.pyplot(fig)
+    
+    # Display metrics
+    st.write("### Linear Regression Metrics")
+    st.write(f"**RMSE**: {rmse:.2f}")
+    st.write(f"**Intercept**: {intercept:.2f}")
+    st.write("**Coefficients**:")
+    for i, col in enumerate(X.columns):
+        st.write(f"- {col}: {coefficients[i]:.2f}")
 
 # Function to run random forest
 def run_random_forest(df, numeric_columns):
     X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    
     rf = RandomForestRegressor(n_estimators=100, random_state=42)
     rf.fit(X_train, y_train)
+    
     y_pred_rf = rf.predict(X_test)
     mse_rf = mean_squared_error(y_test, y_pred_rf)
     rmse_rf = mse_rf ** 0.5
+    
     st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
 
 # Process file upload and log issues
@@ -153,7 +187,7 @@ if uploaded_file is not None:
     st.subheader("Step 2: Choose a Model")
     
     # Track user selection
-    selected_model = st.session_state.get('selected_model', None)
+    selected_model = st.session_state['selected_model']
     
     if selected_model is None:
         col1, col2 = st.columns(2)
