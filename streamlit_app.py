@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
 # Set the title of the app
-st.title("⚕️ Pathways Prediction Platform 💊")
+st.title("💊 Pathways Prediction Platform")
 st.write("Upload your data and explore data types and non-numeric values.")
 
 # Initialize session state for selected model
