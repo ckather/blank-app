@@ -13,9 +13,9 @@ st.write("Upload your data and explore data types and non-numeric values.")
 # Step 1: Upload CSV and download template
 st.subheader("Step 1: Upload Your CSV File")
 
-# Provide the download button for the CSV template
+# Provide the download button for the CSV template with the new label
 st.download_button(
-    label="Download CSV Template 📄",
+    label="Need a template? Download the CSV Here 📄",
     data=pd.DataFrame({
         'acct_numb': ['123', '456', '789'],
         'acct_name': ['Account A', 'Account B', 'Account C'],
@@ -83,6 +83,30 @@ numeric_columns = [
 
 categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
+# Function to run linear regression
+def run_linear_regression(df, numeric_columns):
+    X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
+    y = df['ProdA_sales_2023']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    lr = LinearRegression()
+    lr.fit(X_train, y_train)
+    y_pred = lr.predict(X_test)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = mse ** 0.5
+    st.success(f"Linear Regression RMSE: {rmse:.2f}")
+
+# Function to run random forest
+def run_random_forest(df, numeric_columns):
+    X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
+    y = df['ProdA_sales_2023']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    rf = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf.fit(X_train, y_train)
+    y_pred_rf = rf.predict(X_test)
+    mse_rf = mean_squared_error(y_test, y_pred_rf)
+    rmse_rf = mse_rf ** 0.5
+    st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
+
 # Process file upload and log issues
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -128,32 +152,23 @@ if uploaded_file is not None:
     # Step: Ask user which model to run
     st.subheader("Step 2: Choose a Model")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button('Run Linear Regression'):
-            st.info("Running Linear Regression model...")
-            # Run linear regression model
-            X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
-            y = df['ProdA_sales_2023']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            lr = LinearRegression()
-            lr.fit(X_train, y_train)
-            y_pred = lr.predict(X_test)
-            mse = mean_squared_error(y_test, y_pred)
-            rmse = mse ** 0.5
-            st.success(f"Linear Regression RMSE: {rmse:.2f}")
+    # Track user selection
+    selected_model = st.session_state.get('selected_model', None)
     
-    with col2:
-        if st.button('Run Random Forest'):
-            st.info("Running Random Forest model...")
-            # Run Random Forest model
-            X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
-            y = df['ProdA_sales_2023']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            rf = RandomForestRegressor(n_estimators=100, random_state=42)
-            rf.fit(X_train, y_train)
-            y_pred_rf = rf.predict(X_test)
-            mse_rf = mean_squared_error(y_test, y_pred_rf)
-            rmse_rf = mse_rf ** 0.5
-            st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
+    if selected_model is None:
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button('Run Linear Regression'):
+                st.session_state['selected_model'] = 'linear_regression'
+                run_linear_regression(df, numeric_columns)
+        with col2:
+            if st.button('Run Random Forest'):
+                st.session_state['selected_model'] = 'random_forest'
+                run_random_forest(df, numeric_columns)
+    elif st.session_state['selected_model'] == 'linear_regression':
+        st.info("You have chosen to run the Linear Regression model.")
+        run_linear_regression(df, numeric_columns)
+    elif st.session_state['selected_model'] == 'random_forest':
+        st.info("You have chosen to run the Random Forest model.")
+        run_random_forest(df, numeric_columns)
 
