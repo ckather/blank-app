@@ -1,6 +1,10 @@
- # Import necessary libraries
+# Import necessary libraries
 import streamlit as st
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
 
 # Set the title of the app
 st.title("⚕️ Pathways Prediction Platform 💊")
@@ -11,7 +15,7 @@ st.subheader("Step 1: Upload Your CSV File")
 
 # Provide the download button for the CSV template
 st.download_button(
-    label="Need the CSV template? Click to download 📄",
+    label="Download CSV Template 📄",
     data=pd.DataFrame({
         'acct_numb': ['123', '456', '789'],
         'acct_name': ['Account A', 'Account B', 'Account C'],
@@ -120,3 +124,36 @@ if uploaded_file is not None:
     # Display the cleaned data
     st.write("Cleaned data:")
     st.dataframe(df.head())
+    
+    # Step: Ask user which model to run
+    st.subheader("Step 2: Choose a Model")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button('Run Linear Regression'):
+            st.info("Running Linear Regression model...")
+            # Run linear regression model
+            X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
+            y = df['ProdA_sales_2023']
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            lr = LinearRegression()
+            lr.fit(X_train, y_train)
+            y_pred = lr.predict(X_test)
+            mse = mean_squared_error(y_test, y_pred)
+            rmse = mse ** 0.5
+            st.success(f"Linear Regression RMSE: {rmse:.2f}")
+    
+    with col2:
+        if st.button('Run Random Forest'):
+            st.info("Running Random Forest model...")
+            # Run Random Forest model
+            X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
+            y = df['ProdA_sales_2023']
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            rf = RandomForestRegressor(n_estimators=100, random_state=42)
+            rf.fit(X_train, y_train)
+            y_pred_rf = rf.predict(X_test)
+            mse_rf = mean_squared_error(y_test, y_pred_rf)
+            rmse_rf = mse_rf ** 0.5
+            st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
+
