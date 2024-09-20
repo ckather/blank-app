@@ -13,7 +13,7 @@ st.write("Upload your data and explore data types and non-numeric values.")
 # Step 1: Upload CSV and download template
 st.subheader("Step 1: Upload Your CSV File")
 
-# Provide the download button for the CSV template with the new label
+# Provide the download button for the CSV template
 st.download_button(
     label="Need a template? Download the CSV Here 📄",
     data=pd.DataFrame({
@@ -160,14 +160,14 @@ if uploaded_file is not None:
         with col1:
             if st.button('Run Linear Regression'):
                 st.session_state['selected_model'] = 'linear_regression'
-                run_linear_regression(df, numeric_columns)
         with col2:
             if st.button('Run Random Forest'):
                 st.session_state['selected_model'] = 'random_forest'
-                run_random_forest(df, numeric_columns)
-    elif st.session_state['selected_model'] == 'linear_regression':
-        st.info("You have chosen to run the Linear Regression model.")
+
+    # When the user selects a model, hide the other and display the selected one full width
+    if st.session_state['selected_model'] == 'linear_regression':
+        st.info("Running Linear Regression...")
         run_linear_regression(df, numeric_columns)
     elif st.session_state['selected_model'] == 'random_forest':
-        st.info("You have chosen to run the Random Forest model.")
+        st.info("Running Random Forest...")
         run_random_forest(df, numeric_columns)
