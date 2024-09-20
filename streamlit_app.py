@@ -241,23 +241,9 @@ if uploaded_file is not None:
         st.info("Running Weighted Scoring Model...")
         run_weighted_scoring_model(df)
 
-    # Add CSS for the refresh button to be fixed at the bottom and centered
-    st.markdown("""
-    <style>
-    .fixed-refresh {
-        position: fixed;
-        bottom: 20px;
-        width: 100%;
-        text-align: center;
-        z-index: 9999;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # Add a refresh button at the bottom after the model has run
+    # Add a "Run a New Model" button after the model has run
     if st.session_state['selected_model'] is not None:
-        st.markdown('<div class="fixed-refresh">', unsafe_allow_html=True)
+        st.markdown("<hr>", unsafe_allow_html=True)
         if st.button("Run a New Model 🔄"):
-            st.session_state['selected_model'] = None  # Reset session state
-            st.experimental_rerun()  # Refresh the app
-        st.markdown('</div>', unsafe_allow_html=True)
+            st.session_state['selected_model'] = None  # Reset the session state
+            st.experimental_rerun()  # Clear previous results but don't refresh the page
