@@ -1,4 +1,4 @@
-# Import necessary libraries
+ # Import necessary libraries
 import streamlit as st
 import pandas as pd
 
@@ -11,7 +11,7 @@ st.subheader("Step 1: Upload Your CSV File")
 
 # Provide the download button for the CSV template
 st.download_button(
-    label="Download CSV Template 📄",
+    label="Need the CSV template? Click to download 📄",
     data=pd.DataFrame({
         'acct_numb': ['123', '456', '789'],
         'acct_name': ['Account A', 'Account B', 'Account C'],
