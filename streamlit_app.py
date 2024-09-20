@@ -88,7 +88,7 @@ numeric_columns = [
 
 categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
-# Function to run linear regression and show scatterplot with metrics
+# Function to run linear regression, show scatterplot, and download results
 def run_linear_regression(df, numeric_columns):
     X = df[numeric_columns].drop(columns=['ProdA_sales_2023'])
     y = df['ProdA_sales_2023']
@@ -125,6 +125,29 @@ def run_linear_regression(df, numeric_columns):
     st.write("**Coefficients**:")
     for i, col in enumerate(X.columns):
         st.write(f"- {col}: {coefficients[i]:.2f}")
+
+    # Tutorial-style explanation in simple English
+    st.write("### What do these numbers mean?")
+    st.write("""
+    - **RMSE (Root Mean Squared Error)**: This tells you how much your predictions deviate, on average, from the actual values. A lower RMSE means your predictions are more accurate.
+    - **Intercept**: This is the baseline prediction when all other features are zero. It shows the predicted sales when the input factors don’t contribute.
+    - **Coefficients**: Each coefficient shows how much the sales prediction will change if you increase the corresponding feature by 1 unit. Positive values indicate that increasing the feature increases sales, while negative values indicate a decrease in sales.
+    """)
+
+    # Prepare results for download
+    results = {
+        'Feature': X.columns.tolist() + ['Intercept', 'RMSE'],
+        'Value': coefficients.tolist() + [intercept, rmse]
+    }
+    results_df = pd.DataFrame(results)
+
+    # Add a button to download the results
+    st.download_button(
+        label="Download Linear Regression Results 📥",
+        data=results_df.to_csv(index=False),
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
 
 # Function to run random forest
 def run_random_forest(df, numeric_columns):
@@ -206,3 +229,4 @@ if uploaded_file is not None:
     elif st.session_state['selected_model'] == 'random_forest':
         st.info("Running Random Forest...")
         run_random_forest(df, numeric_columns)
+
