@@ -139,6 +139,7 @@ def run_random_forest(df, numeric_columns):
     mse_rf = mean_squared_error(y_test, y_pred_rf)
     rmse_rf = mse_rf ** 0.5
     
+    # Display Random Forest metrics
     st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
 
 # Process file upload and log issues
