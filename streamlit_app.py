@@ -165,6 +165,11 @@ def run_random_forest(df, numeric_columns):
     # Display Random Forest metrics
     st.success(f"Random Forest RMSE: {rmse_rf:.2f}")
 
+# Function to run weighted scoring model (example logic)
+def run_weighted_scoring_model(df):
+    # Placeholder logic for weighted scoring model
+    st.write("Running the weighted scoring model...")
+
 # Process file upload and log issues
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -214,19 +219,29 @@ if uploaded_file is not None:
     selected_model = st.session_state['selected_model']
     
     if selected_model is None:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             if st.button('Run Linear Regression'):
                 st.session_state['selected_model'] = 'linear_regression'
         with col2:
             if st.button('Run Random Forest'):
                 st.session_state['selected_model'] = 'random_forest'
+        with col3:
+            if st.button('Run Weighted Scoring Model'):
+                st.session_state['selected_model'] = 'weighted_scoring_model'
 
-    # When the user selects a model, hide the other and display the selected one full width
+    # When the user selects a model, display only the selected one
     if st.session_state['selected_model'] == 'linear_regression':
         st.info("Running Linear Regression...")
         run_linear_regression(df, numeric_columns)
     elif st.session_state['selected_model'] == 'random_forest':
         st.info("Running Random Forest...")
         run_random_forest(df, numeric_columns)
+    elif st.session_state['selected_model'] == 'weighted_scoring_model':
+        st.info("Running Weighted Scoring Model...")
+        run_weighted_scoring_model(df)
 
+    # Add a refresh button at the bottom after the model has run
+    if st.session_state['selected_model'] is not None:
+        if st.button("Refresh Page 🔄"):
+            st.experimental_rerun()
