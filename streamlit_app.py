@@ -171,4 +171,3 @@ if uploaded_file is not None:
     elif st.session_state['selected_model'] == 'random_forest':
         st.info("You have chosen to run the Random Forest model.")
         run_random_forest(df, numeric_columns)
-
