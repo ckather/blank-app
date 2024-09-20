@@ -246,4 +246,5 @@ if uploaded_file is not None:
         st.markdown("<hr>", unsafe_allow_html=True)
         if st.button("Run a New Model 🔄"):
             st.session_state['selected_model'] = None  # Reset the session state
-            st.experimental_rerun()  # Clear previous results but don't refresh the page
+            # Clear the content below the model selection but don't refresh the page
+            st.experimental_set_query_params()  # Clear content from previous run
