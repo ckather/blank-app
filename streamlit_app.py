@@ -53,8 +53,8 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# Add the logo at the top, replace with the actual path to the logo
-st.image("path/to/your/logo.png", use_column_width=True, caption="Bristol Myers Squibb", class_="centered-logo")
+# Display the logo using CSS for centering
+st.markdown('<img src="path/to/your/logo.png" class="centered-logo">', unsafe_allow_html=True)
 
 # Title with custom CSS styling
 st.markdown('<div class="title-text">Pathways Prediction Platform</div>', unsafe_allow_html=True)
