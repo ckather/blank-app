@@ -18,7 +18,6 @@ st.markdown("""
     .tooltip {
       position: relative;
       display: inline-block;
-      cursor: pointer;
     }
 
     /* Tooltip text */
@@ -32,29 +31,21 @@ st.markdown("""
       border-radius: 6px;
       position: absolute;
       z-index: 1;
-      bottom: 125%; /* Position the tooltip */
+      bottom: 100%;
       left: 50%;
       margin-left: -100px;
       opacity: 0;
       transition: opacity 0.3s;
     }
 
-    /* Tooltip arrow */
-    .tooltip .tooltiptext::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -5px;
-      border-width: 5px;
-      border-style: solid;
-      border-color: #555 transparent transparent transparent;
-    }
-
     /* Show the tooltip text on hover */
     .tooltip:hover .tooltiptext {
       visibility: visible;
       opacity: 1;
+    }
+
+    .tooltip button {
+      cursor: pointer;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -145,23 +136,32 @@ if uploaded_file is not None:
     
     st.subheader("Step 2: Choose a Model")
 
-    # Model selection buttons with hover tooltips and clickable buttons
+    # Model selection buttons with hover tooltips
     col1, col2, col3 = st.columns(3)
 
     with col1:
+        st.markdown(
+            '<div class="tooltip"><button>Run Linear Regression</button><span class="tooltiptext">Linear Regression: Choose this model if you\'re working with between 10-50 lines of data.</span></div>',
+            unsafe_allow_html=True
+        )
         if st.button("Run Linear Regression"):
             st.session_state['selected_model'] = 'linear_regression'
-            st.info("Linear Regression: Choose this model if you're working with between 10-50 lines of data.")
 
     with col2:
+        st.markdown(
+            '<div class="tooltip"><button>Run Random Forest</button><span class="tooltiptext">Random Forest: Choose this model if you\'re working with >50 lines of data and want to leverage predictive power.</span></div>',
+            unsafe_allow_html=True
+        )
         if st.button("Run Random Forest"):
             st.session_state['selected_model'] = 'random_forest'
-            st.info("Random Forest: Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
 
     with col3:
+        st.markdown(
+            '<div class="tooltip"><button>Run Weighted Scoring Model</button><span class="tooltiptext">Weighted Scoring Model: Choose this model if you\'re looking for analysis, not prediction.</span></div>',
+            unsafe_allow_html=True
+        )
         if st.button("Run Weighted Scoring Model"):
             st.session_state['selected_model'] = 'weighted_scoring_model'
-            st.info("Weighted Scoring Model: Choose this model if you're looking for analysis, not prediction.")
 
     # Execute selected model
     if st.session_state['selected_model'] == 'linear_regression':
