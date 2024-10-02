@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
 # Set the page configuration
-st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="centered")
+st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="wide")
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
@@ -208,23 +208,30 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     )
     st.plotly_chart(fig)
 
+def render_sidebar():
+    """
+    Renders the instructions sidebar with step highlighting.
+    """
+    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
+    current_step = st.session_state.step
+    
+    st.sidebar.title("📖 Instructions")
+    
+    for i, title in enumerate(step_titles, 1):
+        if i == current_step:
+            # Highlight current step
+            st.sidebar.markdown(f"### **Step {i}: {title}** 🔵")
+        else:
+            # Regular steps
+            st.sidebar.markdown(f"### Step {i}: {title}")
+
+# Render the sidebar with step highlighting
+render_sidebar()
+
 # Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
     st.title("💊 Pathways Prediction Platform")
     st.subheader("Step 1: Upload Your CSV File")
-    
-    # Sidebar Instructions
-    with st.sidebar:
-        st.header("📖 Instructions")
-        st.write("""
-            **Step 1:** Upload your CSV file. Ensure it contains all necessary sales columns.
-            
-            **Step 2:** Confirm the selected target variable.
-            
-            **Step 3:** Select the independent variables that will influence the target.
-            
-            **Step 4:** Assign weights to the selected features and choose a predictive model. Run the model to view the results.
-        """)
     
     # Provide the download button for the CSV template
     st.download_button(
@@ -283,7 +290,7 @@ if st.session_state.step == 1:
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Confirm Target Variable (Modified)
+# Step 2: Confirm Target Variable
 elif st.session_state.step == 2:
     st.subheader("Step 2: Confirm Target Variable")
     
@@ -340,17 +347,17 @@ elif st.session_state.step == 3:
             else:
                 st.warning("⚠️ Please select at least one independent variable.")
 
-# Step 4: Choose and Run Model
+# Step 4: Assign Weights and Choose Model
 elif st.session_state.step == 4:
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
     
-    st.subheader("Step 4: Choose and Run Model")
+    st.subheader("Step 4: Assign Weights & Choose Model")
     st.write("Select the predictive model you want to run based on your selected features.")
     
     # Define feature weights for Weighted Scoring Model
-    # Assign default weights (0.2) to each selected feature
+    # Assign default weights based on number of features
     st.markdown("**Assign Weights to Selected Features** 🎯")
     
     # Add a simple text description at the top
@@ -359,38 +366,59 @@ elif st.session_state.step == 4:
         The weights must add up to **1**. You can assign the same weight to multiple features if they are equally important.
     """)
     
+    # Radio button to choose input method
+    input_method = st.radio(
+        "Choose your weight assignment method:",
+        options=["Sliders (Multiples of 0.05)", "Text Boxes (Enter Weights)"],
+        index=0,
+        horizontal=True
+    )
+    
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
     
-    # Display sliders for each feature to assign weights
-    for feature in selected_features:
-        weight = st.slider(
-            f"Weight for **{feature}**",
-            min_value=0.0,
-            max_value=1.0,
-            value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
-            step=0.05,  # Multiples of 0.05
-            key=f"weight_{feature}"
-        )
-        feature_weights[feature] = weight
+    # Assign weights based on selected input method
+    if input_method == "Sliders (Multiples of 0.05)":
+        for feature in selected_features:
+            weight = st.slider(
+                f"Weight for **{feature}**",
+                min_value=0.0,
+                max_value=1.0,
+                value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
+                step=0.05,  # Multiples of 0.05
+                key=f"weight_slider_{feature}"
+            )
+            feature_weights[feature] = weight
+    else:
+        for feature in selected_features:
+            weight = st.number_input(
+                f"Weight for **{feature}**",
+                min_value=0.0,
+                max_value=1.0,
+                value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
+                step=0.05,  # Multiples of 0.05
+                format="%.2f",
+                key=f"weight_input_{feature}"
+            )
+            feature_weights[feature] = weight
     
     # Calculate total weight
     total_weight = sum(feature_weights.values())
     
-    # Display the total weight in a fun way using a progress bar and emojis
+    # Display the total weight in a fun way with color-coding
     st.markdown("---")
     st.markdown("### 🎯 **Total Weight Assigned:**")
     
-    # Determine progress and corresponding emoji and color
+    # Determine color and emoji based on total weight
     if total_weight < 1.0:
         emoji = "🟡"  # Yellow
-        color = "yellow"
+        color = "#FFC107"  # Yellow color code
     elif total_weight > 1.0:
         emoji = "🔴"  # Red
-        color = "red"
+        color = "#DC3545"  # Red color code
     else:
         emoji = "🟢"  # Green
-        color = "green"
+        color = "#28A745"  # Green color code
     
     # Custom HTML to style the total weight display
     st.markdown(
