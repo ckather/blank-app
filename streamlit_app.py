@@ -104,13 +104,17 @@ if uploaded_file is not None:
     st.dataframe(df.head())
     
     st.subheader("Step 2: Choose a Model")
+
     # Model selection buttons with descriptions as clickable links
     col1, col2, col3 = st.columns(3)
-
     with col1:
         if st.button("Run Linear Regression", key='lr'):
             st.session_state['selected_model'] = 'linear_regression'
-        if st.button("Description", key='lr_desc'):
+        st.markdown(
+            "<a href='#' style='color: orange; text-decoration: underline; display: block; text-align: center; margin-top: -10px;'>Description</a>", 
+            unsafe_allow_html=True
+        )
+        if st.button("Show LR Description", key='lr_desc'):
             st.session_state['show_lr_desc'] = not st.session_state['show_lr_desc']
         if st.session_state['show_lr_desc']:
             st.info("Linear Regression: Choose this model if you're working with between 10-50 lines of data.")
@@ -118,19 +122,26 @@ if uploaded_file is not None:
     with col2:
         if st.button("Run Random Forest", key='rf'):
             st.session_state['selected_model'] = 'random_forest'
-        if st.button("Description", key='rf_desc'):
+        st.markdown(
+            "<a href='#' style='color: orange; text-decoration: underline; display: block; text-align: center; margin-top: -10px;'>Description</a>", 
+            unsafe_allow_html=True
+        )
+        if st.button("Show RF Description", key='rf_desc'):
             st.session_state['show_rf_desc'] = not st.session_state['show_rf_desc']
         if st.session_state['show_rf_desc']:
-            st.info("Random Forest: Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
-
+            st.info("Random Forest: Choose this model if you're working with >50 lines of data.")
+        
     with col3:
         if st.button("Run Weighted Scoring Model", key='wsm'):
             st.session_state['selected_model'] = 'weighted_scoring_model'
-        if st.button("Description", key='wsm_desc'):
+        st.markdown(
+            "<a href='#' style='color: orange; text-decoration: underline; display: block; text-align: center; margin-top: -10px;'>Description</a>", 
+            unsafe_allow_html=True
+        )
+        if st.button("Show WSM Description", key='wsm_desc'):
             st.session_state['show_wsm_desc'] = not st.session_state['show_wsm_desc']
         if st.session_state['show_wsm_desc']:
             st.info("Weighted Scoring Model: Choose this model if you're looking for analysis, not prediction.")
-
     # Execute selected model
     if st.session_state['selected_model'] == 'linear_regression':
         st.info("Running Linear Regression...")
