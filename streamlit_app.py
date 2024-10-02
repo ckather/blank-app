@@ -2,13 +2,11 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.express as px
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-
-# Import Plotly for interactive charts
-import plotly.express as px
 
 # Set the page configuration
 st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="centered")
@@ -171,7 +169,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     )
     st.plotly_chart(fig2)
 
-def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
+def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
     Calculates and evaluates a Weighted Scoring Model based on selected features and their normalized weights.
     """
@@ -182,7 +180,7 @@ def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
     
     # Calculate weighted score based on normalized weights
     df_encoded['Weighted_Score'] = 0
-    for feature, weight in feature_weights.items():
+    for feature, weight in normalized_weights.items():
         if feature in df_encoded.columns:
             if pd.api.types.is_numeric_dtype(df_encoded[feature]):
                 df_encoded['Weighted_Score'] += df_encoded[feature] * weight
@@ -352,7 +350,7 @@ elif st.session_state.step == 4:
     st.write("Select the predictive model you want to run based on your selected features.")
     
     # Define feature weights for Weighted Scoring Model
-    # Assign default weights (1.0 / number of features) to each selected feature
+    # Assign default weights (0.2) to each selected feature
     st.markdown("**Assign Weights to Selected Features** 🎯")
     
     # Add a simple text description at the top
@@ -363,55 +361,50 @@ elif st.session_state.step == 4:
     
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
-    total_weight = 0.0
-    
-    num_features = len(selected_features)
-    default_weight = round(1.0 / num_features, 2) if num_features > 0 else 0
     
     # Display sliders for each feature to assign weights
     for feature in selected_features:
         weight = st.slider(
-            f"Weight for **{feature}** 🎛️",
+            f"Weight for **{feature}**",
             min_value=0.0,
             max_value=1.0,
-            value=default_weight,
+            value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
             step=0.01,
             key=f"weight_{feature}"
         )
         feature_weights[feature] = weight
-        total_weight += weight
     
-    # Display the total weight in a fun way
+    # Calculate total weight
+    total_weight = sum(feature_weights.values())
+    
+    # Display the total weight in a fun way using a progress bar and emojis
     st.markdown("---")
-    st.markdown("### 🎯 **Total Weight: {:.2f}**".format(total_weight))
+    st.markdown("### 🎯 Total Weight Assigned:")
+    progress = total_weight
+    if progress > 1.0:
+        progress = 1.0  # Cap at 100%
+    elif progress < 1.0:
+        progress = progress  # Allow partial fill
+    st.progress(progress)
+    st.write(f"**Total Weight:** {total_weight:.2f}")
     
-    # Display progress bar
-    st.progress(total_weight * 100)
-    
-    # Add conditional emoji and message
-    if total_weight == 1.0:
-        st.success("✅ The total weight is perfect! 🥳")
-    elif total_weight < 1.0:
-        st.warning(f"⚠️ The total weight is **{total_weight:.2f}**. Please assign more weight to reach **1**.")
-    elif total_weight >1.0:
-        st.error(f"⚠️ The total weight is **{total_weight:.2f}**. Please reduce some weights to reach **1**.")
-    
-    # Normalize weights if not equal to 1
-    if total_weight != 1.0 and total_weight != 0:
-        st.warning("⚠️ The weights will be normalized to sum up to **1**.")
+    if total_weight != 1.0:
+        st.warning("⚠️ The total weight does not equal **1**. The weights will be normalized automatically.")
         # Normalize weights
-        normalized_weights = {feature: weight / total_weight for feature, weight in feature_weights.items()}
+        if total_weight > 0:
+            normalized_weights = {feature: weight / total_weight for feature, weight in feature_weights.items()}
+        else:
+            normalized_weights = feature_weights  # Avoid division by zero
     else:
         normalized_weights = feature_weights
     
-    # Display normalized weights
-    if total_weight !=1.0 and total_weight !=0:
-        st.markdown("### 📝 **Normalized Weights:**")
-        normalized_weights_df = pd.DataFrame({
-            'Feature': list(normalized_weights.keys()),
-            'Weight': list(normalized_weights.values())
-        })
-        st.dataframe(normalized_weights_df)
+    # Display normalized weights in a dataframe
+    st.markdown("**Normalized Weights:**")
+    normalized_weights_df = pd.DataFrame({
+        'Feature': list(normalized_weights.keys()),
+        'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+    })
+    st.dataframe(normalized_weights_df)
     
     st.markdown("---")
     
@@ -457,20 +450,20 @@ elif st.session_state.step == 4:
                     X[col].fillna(X[col].mean(), inplace=True)
             
             # Split the data into training and testing sets
-            test_size = st.slider("Select Test Size Percentage 🧪", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+            test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
             
             st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
             
             # Execute selected model with loading spinner
             if st.session_state.selected_model == 'linear_regression':
-                with st.spinner("⏳ Training Linear Regression model..."):
+                with st.spinner("Training Linear Regression model..."):
                     run_linear_regression(X_train, X_test, y_train, y_test)
             elif st.session_state.selected_model == 'random_forest':
-                with st.spinner("⏳ Training Random Forest model..."):
+                with st.spinner("Training Random Forest model..."):
                     run_random_forest(X_train, X_test, y_train, y_test)
             elif st.session_state.selected_model == 'weighted_scoring_model':
-                with st.spinner("⏳ Calculating Weighted Scoring Model..."):
+                with st.spinner("Calculating Weighted Scoring Model..."):
                     run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
     
     st.markdown("---")
@@ -486,4 +479,3 @@ elif st.session_state.step == 4:
     with col_reset:
         if st.button("Run a New Model 🔄", key='reset_app'):
             reset_app()
-
