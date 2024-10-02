@@ -27,6 +27,16 @@ if 'selected_features' not in st.session_state:
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None  # Selected model
 
+# Function to advance to the next step
+def next_step():
+    if st.session_state.step < 4:
+        st.session_state.step += 1
+
+# Function to go back to the previous step
+def prev_step():
+    if st.session_state.step > 1:
+        st.session_state.step -= 1
+
 # Function to reset the app to Step 1
 def reset_app():
     st.session_state.step = 1
@@ -219,11 +229,11 @@ def render_sidebar():
     
     for i, title in enumerate(step_titles, 1):
         if i == current_step:
-            # Highlight current step
+            # Highlight current step with bold text and an active emoji
             st.sidebar.markdown(f"### **Step {i}: {title}** 🔵")
         else:
-            # Regular steps
-            st.sidebar.markdown(f"### Step {i}: {title}")
+            # Regular steps with inactive emojis
+            st.sidebar.markdown(f"### Step {i}: {title} 🟠")
 
 # Render the sidebar with step highlighting
 render_sidebar()
@@ -272,7 +282,7 @@ if st.session_state.step == 1:
         "Choose your CSV file:", type="csv", label_visibility="visible"
     )
     
-    # Next button appears only after successful upload and rank generation
+    # Process the uploaded file
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
@@ -285,8 +295,7 @@ if st.session_state.step == 1:
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
             
             # Display Next button
-            if st.button("Next →", key='next_step1'):
-                st.session_state.step = 2
+            st.button("Next →", on_click=next_step, key='next_step1')
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
@@ -306,14 +315,12 @@ elif st.session_state.step == 2:
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
-    # Navigation buttons with unique keys
+    # Navigation buttons with callbacks
     col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("← Back", key='back_step2'):
-            st.session_state.step = 1
+        st.button("← Back", on_click=prev_step, key='back_step2')
     with col2:
-        if st.button("Next →", key='next_step2'):
-            st.session_state.step = 3
+        st.button("Next →", on_click=next_step, key='next_step2')
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
@@ -334,20 +341,18 @@ elif st.session_state.step == 3:
         key='feature_selection'
     )
     
-    # Navigation buttons with unique keys
+    # Navigation buttons with callbacks
     col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("← Back", key='back_step3'):
-            st.session_state.step = 2
+        st.button("← Back", on_click=prev_step, key='back_step3')
     with col2:
-        if st.button("Next →", key='next_step3'):
+        if st.button("Next →", on_click=next_step, key='next_step3'):
             if selected_features:
                 st.session_state.selected_features = selected_features
-                st.session_state.step = 4
             else:
                 st.warning("⚠️ Please select at least one independent variable.")
 
-# Step 4: Assign Weights and Choose Model
+# Step 4: Assign Weights & Choose Model
 elif st.session_state.step == 4:
     df = st.session_state.df
     target_column = st.session_state.target_column
@@ -495,17 +500,20 @@ elif st.session_state.step == 4:
                 else:
                     X[col].fillna(X[col].mean(), inplace=True)
             
-            # Split the data into training and testing sets
-            test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-            
-            st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+            # Initialize variables for Random Forest
+            X_train = X_test = y_train = y_test = None
             
             # Execute selected model with loading spinner
             if st.session_state.selected_model == 'linear_regression':
-                with st.spinner("Training Linear Regression model..."):
-                    run_linear_regression(X_train, X_test, y_train, y_test)
+                with st.spinner("Running Linear Regression..."):
+                    run_linear_regression(X, X, y, y)  # Using entire data as both train and test
             elif st.session_state.selected_model == 'random_forest':
+                # Split the data into training and testing sets
+                test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+                
+                st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+                
                 with st.spinner("Training Random Forest model..."):
                     run_random_forest(X_train, X_test, y_train, y_test)
             elif st.session_state.selected_model == 'weighted_scoring_model':
@@ -514,14 +522,13 @@ elif st.session_state.step == 4:
     
     st.markdown("---")
     
-    # Navigation buttons with unique keys
+    # Navigation buttons with callbacks
     col_back, col_run, col_reset = st.columns([1,1,1])
     with col_back:
-        if st.button("← Back", key='back_step4'):
-            st.session_state.step = 3
+        if st.button("← Back", on_click=prev_step, key='back_step4'):
             st.session_state.selected_model = None
     with col_run:
         pass  # Placeholder for alignment
     with col_reset:
-        if st.button("Run a New Model 🔄", key='reset_app'):
-            reset_app()
+        if st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app'):
+            pass
