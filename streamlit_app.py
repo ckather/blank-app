@@ -253,9 +253,17 @@ if st.session_state.step == 1:
 
 # Step 2: Confirm Target Variable (Modified)
 elif st.session_state.step == 2:
-    st.subheader("Step 2: Understanding the Process")
+    st.subheader("Step 2: Confirm Target Variable")
+    
+    # Display the selected target variable
+    target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
+    st.session_state.target_column = target_column  # Ensure it's set
+    
+    st.markdown(f"**Selected Target Variable:** `{target_column}`")
+    
+    # Add descriptive text guiding to next steps
     st.write("""
-        In the next steps, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
+        In the next step, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
