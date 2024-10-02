@@ -112,14 +112,23 @@ def run_linear_regression(X_train, X_test, y_train, y_test):
     st.subheader("📈 Linear Regression Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
-    # Plot Actual vs Predicted
-    fig, ax = plt.subplots()
-    ax.scatter(y_test, predictions, alpha=0.7)
-    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
-    ax.set_xlabel("Actual")
-    ax.set_ylabel("Predicted")
-    ax.set_title("Actual vs Predicted")
-    st.pyplot(fig)
+    # Plot Actual vs Predicted using Plotly for interactivity
+    import plotly.express as px
+    fig = px.scatter(
+        x=y_test,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title='Actual vs Predicted'
+    )
+    fig.add_shape(
+        type="line",
+        x0=y_test.min(),
+        y0=y_test.min(),
+        x1=y_test.max(),
+        y1=y_test.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig)
 
 def run_random_forest(X_train, X_test, y_train, y_test):
     """
@@ -143,25 +152,34 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     ax.set_title("Feature Importances")
     st.pyplot(fig)
     
-    # Plot Actual vs Predicted
-    fig2, ax2 = plt.subplots()
-    ax2.scatter(y_test, predictions, alpha=0.7)
-    ax2.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
-    ax2.set_xlabel("Actual")
-    ax2.set_ylabel("Predicted")
-    ax2.set_title("Actual vs Predicted")
-    st.pyplot(fig2)
+    # Plot Actual vs Predicted using Plotly
+    import plotly.express as px
+    fig2 = px.scatter(
+        x=y_test,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title='Actual vs Predicted'
+    )
+    fig2.add_shape(
+        type="line",
+        x0=y_test.min(),
+        y0=y_test.min(),
+        x1=y_test.max(),
+        y1=y_test.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig2)
 
 def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
     """
-    Calculates and evaluates a Weighted Scoring Model based on selected features and their weights.
+    Calculates and evaluates a Weighted Scoring Model based on selected features and their normalized weights.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
     
     # Encode categorical features
     df_encoded = encode_categorical_features(df.copy(), mappings)
     
-    # Calculate weighted score
+    # Calculate weighted score based on normalized weights
     df_encoded['Weighted_Score'] = 0
     for feature, weight in feature_weights.items():
         if feature in df_encoded.columns:
@@ -181,18 +199,34 @@ def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
     st.dataframe(top_accounts)
     
-    # Plot Weighted Score vs Target
-    fig, ax = plt.subplots()
-    ax.scatter(df_encoded['Weighted_Score'], df_encoded[target_column], alpha=0.7)
-    ax.set_xlabel("Weighted Score")
-    ax.set_ylabel(target_column)
-    ax.set_title("Weighted Score vs Actual")
-    st.pyplot(fig)
+    # Plot Weighted Score vs Target using Plotly for interactivity
+    import plotly.express as px
+    fig = px.scatter(
+        df_encoded,
+        x='Weighted_Score',
+        y=target_column,
+        labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
+        title='Weighted Score vs Actual'
+    )
+    st.plotly_chart(fig)
 
 # Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
     st.title("💊 Pathways Prediction Platform")
     st.subheader("Step 1: Upload Your CSV File")
+    
+    # Sidebar Instructions
+    with st.sidebar:
+        st.header("📖 Instructions")
+        st.write("""
+            **Step 1:** Upload your CSV file. Ensure it contains all necessary sales columns.
+            
+            **Step 2:** Confirm the selected target variable.
+            
+            **Step 3:** Select the independent variables that will influence the target.
+            
+            **Step 4:** Choose a predictive model and run it to view results.
+        """)
     
     # Provide the download button for the CSV template
     st.download_button(
@@ -319,18 +353,49 @@ elif st.session_state.step == 4:
     
     # Define feature weights for Weighted Scoring Model
     # Assign default weights (1.0) to each selected feature
-    st.markdown("**Assign Weights to Selected Features:**")
+    st.markdown("**Assign Weights to Selected Features** 🎯")
+    
+    # Add a simple text description at the top
+    st.write("""
+        Assign how important each feature is in determining the **Account Adoption Rank Order**. 
+        The weights must add up to **1**. You can assign the same weight to multiple features if they are equally important.
+    """)
+    
+    # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
+    total_weight = 0.0
+    
+    # Display sliders for each feature to assign weights
     for feature in selected_features:
-        weight = st.number_input(
-            f"Weight for {feature}",
+        weight = st.slider(
+            f"Weight for **{feature}**",
             min_value=0.0,
-            max_value=5.0,
-            value=1.0,
-            step=0.1,
+            max_value=1.0,
+            value=0.2,  # Default value; adjust based on number of features
+            step=0.01,
             key=f"weight_{feature}"
         )
         feature_weights[feature] = weight
+        total_weight += weight
+    
+    # Display the total weight and normalization info
+    st.markdown("---")
+    st.write(f"**Total Weight:** {total_weight:.2f}")
+    
+    if total_weight != 1.0:
+        st.warning("⚠️ The total weight does not equal **1**. The weights will be normalized automatically.")
+        # Normalize weights
+        normalized_weights = {feature: weight / total_weight for feature, weight in feature_weights.items()}
+    else:
+        normalized_weights = feature_weights
+    
+    # Display normalized weights
+    st.markdown("**Normalized Weights:**")
+    normalized_weights_df = pd.DataFrame({
+        'Feature': list(normalized_weights.keys()),
+        'Weight': list(normalized_weights.values())
+    })
+    st.dataframe(normalized_weights_df)
     
     st.markdown("---")
     
@@ -390,7 +455,7 @@ elif st.session_state.step == 4:
                     run_random_forest(X_train, X_test, y_train, y_test)
             elif st.session_state.selected_model == 'weighted_scoring_model':
                 with st.spinner("Calculating Weighted Scoring Model..."):
-                    run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
+                    run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
     
     st.markdown("---")
     
