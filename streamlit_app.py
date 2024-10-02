@@ -7,7 +7,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
-# Initialize session state variables
+# Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
     st.session_state.step = 1  # Current step: 1 to 4
 
@@ -23,13 +23,6 @@ if 'selected_features' not in st.session_state:
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None  # Selected model
 
-if 'show_description' not in st.session_state:
-    st.session_state.show_description = {
-        'linear_regression': False,
-        'random_forest': False,
-        'weighted_scoring_model': False
-    }
-
 # Function to reset the app to Step 1
 def reset_app():
     st.session_state.step = 1
@@ -37,11 +30,6 @@ def reset_app():
     st.session_state.target_column = None
     st.session_state.selected_features = []
     st.session_state.selected_model = None
-    st.session_state.show_description = {
-        'linear_regression': False,
-        'random_forest': False,
-        'weighted_scoring_model': False
-    }
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -216,7 +204,8 @@ elif st.session_state.step == 2:
     
     if not numeric_columns:
         st.error("❌ No numeric columns found in the uploaded data to select as target.")
-        reset_app()
+        if st.button("Run a New Model 🔄"):
+            reset_app()
     else:
         target_column = st.radio(
             "Choose one target variable for prediction:",
