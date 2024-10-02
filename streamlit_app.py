@@ -111,31 +111,31 @@ def generate_account_adoption_rank(df):
     
     return df
 
-def run_linear_regression(X_train, X_test, y_train, y_test):
+def run_linear_regression(X, y):
     """
     Trains and evaluates a Linear Regression model.
     """
     model = LinearRegression()
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
+    model.fit(X, y)
+    predictions = model.predict(X)
+    mse = mean_squared_error(y, predictions)
     
     st.subheader("📈 Linear Regression Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
     # Plot Actual vs Predicted using Plotly for interactivity
     fig = px.scatter(
-        x=y_test,
+        x=y,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
         title='Actual vs Predicted'
     )
     fig.add_shape(
         type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
+        x0=y.min(),
+        y0=y.min(),
+        x1=y.max(),
+        y1=y.max(),
         line=dict(color="Red", dash="dash")
     )
     st.plotly_chart(fig)
@@ -220,7 +220,7 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
 
 def render_sidebar():
     """
-    Renders the instructions sidebar with step highlighting.
+    Renders the instructions sidebar with step highlighting and check marks.
     """
     step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
     current_step = st.session_state.step
@@ -228,14 +228,17 @@ def render_sidebar():
     st.sidebar.title("📖 Instructions")
     
     for i, title in enumerate(step_titles, 1):
-        if i == current_step:
-            # Highlight current step with bold text and an active emoji
-            st.sidebar.markdown(f"### **Step {i}: {title}** 🔵")
+        if i < current_step:
+            # Completed steps with green check marks
+            st.sidebar.markdown(f"### Step {i}: {title} ✅")
+        elif i == current_step:
+            # Current step with highlighted text and empty circle
+            st.sidebar.markdown(f"### Step {i}: {title} ⭕")
         else:
-            # Regular steps with inactive emojis
-            st.sidebar.markdown(f"### Step {i}: {title} 🟠")
+            # Upcoming steps with no check marks
+            st.sidebar.markdown(f"### Step {i}: {title} ⭕")
 
-# Render the sidebar with step highlighting
+# Render the sidebar with step highlighting and check marks
 render_sidebar()
 
 # Step 1: Upload CSV and Download Template
@@ -336,7 +339,7 @@ elif st.session_state.step == 3:
     selected_features = st.multiselect(
         "Choose your independent variables (features):",
         options=possible_features,
-        default=possible_features[:3],  # Default selection
+        default=[],  # No default selection
         help="Select one or more features to include in the model.",
         key='feature_selection'
     )
@@ -389,7 +392,7 @@ elif st.session_state.step == 4:
                 f"Weight for **{feature}**",
                 min_value=0.0,
                 max_value=1.0,
-                value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
+                value=0.0,  # Default value set to zero
                 step=0.05,  # Multiples of 0.05
                 key=f"weight_slider_{feature}"
             )
@@ -400,7 +403,7 @@ elif st.session_state.step == 4:
                 f"Weight for **{feature}**",
                 min_value=0.0,
                 max_value=1.0,
-                value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
+                value=0.0,  # Default value set to zero
                 step=0.05,  # Multiples of 0.05
                 format="%.2f",
                 key=f"weight_input_{feature}"
@@ -500,13 +503,10 @@ elif st.session_state.step == 4:
                 else:
                     X[col].fillna(X[col].mean(), inplace=True)
             
-            # Initialize variables for Random Forest
-            X_train = X_test = y_train = y_test = None
-            
             # Execute selected model with loading spinner
             if st.session_state.selected_model == 'linear_regression':
                 with st.spinner("Running Linear Regression..."):
-                    run_linear_regression(X, X, y, y)  # Using entire data as both train and test
+                    run_linear_regression(X, y)  # Using entire data
             elif st.session_state.selected_model == 'random_forest':
                 # Split the data into training and testing sets
                 test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
