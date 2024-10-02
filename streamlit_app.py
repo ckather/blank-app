@@ -19,7 +19,7 @@ if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
 
 if 'target_column' not in st.session_state:
-    st.session_state.target_column = None  # Selected target variable
+    st.session_state.target_column = 'Account Adoption Rank Order'  # Default target variable
 
 if 'selected_features' not in st.session_state:
     st.session_state.selected_features = []  # Selected independent variables
@@ -41,7 +41,7 @@ def prev_step():
 def reset_app():
     st.session_state.step = 1
     st.session_state.df = None
-    st.session_state.target_column = None
+    st.session_state.target_column = 'Account Adoption Rank Order'
     st.session_state.selected_features = []
     st.session_state.selected_model = None
 
@@ -373,10 +373,6 @@ elif st.session_state.step == 4:
         The weights must add up to **10**. You can assign the same weight to multiple features if they are equally important.
     """)
     
-    # Radio button to choose input method (sliders replaced with input boxes)
-    # Removed sliders as per user request and replaced with input boxes
-    # Users enter numbers from 1 to 10, with total adding up to 10
-    
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
     
@@ -387,7 +383,7 @@ elif st.session_state.step == 4:
             f"Weight for **{feature}**:",
             min_value=1,
             max_value=10,
-            value=1,
+            value=1,  # Default initial value of 1
             step=1,
             key=f"weight_input_{feature}"
         )
@@ -513,3 +509,4 @@ elif st.session_state.step == 4:
         pass  # Placeholder for alignment
     with col_reset:
         st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app')
+
