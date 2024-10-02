@@ -9,7 +9,7 @@ from sklearn.metrics import mean_squared_error
 
 # Set the title of the app
 st.title("💊 Pathways Prediction Platform")
-st.write("Upload your data and explore data types and non-numeric values.")
+st.write("Upload your data, select target and features, and run predictive models.")
 
 # Initialize session state for selected model and descriptions
 if 'selected_model' not in st.session_state:
@@ -40,7 +40,7 @@ st.download_button(
         'competition_sales_2022': [10000, 11000, 10500],
         'competition_units_2022': [100, 110, 105],
         'ProdA_sales_2023': [30000, 35000, 32000],
-        'Total 2022 and 2023': [50000, 60000, 54000],
+        'Total_2022_and_2023': [50000, 60000, 54000],
         'ProdA_units_2023': [300, 350, 320],
         'competition_sales_2023': [15000, 16000, 15500],
         'competition_units_2023': [150, 160, 155],
@@ -63,39 +63,6 @@ st.markdown("<br>", unsafe_allow_html=True)
 uploaded_file = st.file_uploader(
     "Now, choose your CSV file:", type="csv", label_visibility="visible"
 )
-
-# Default feature weights (for potential use later)
-feature_weights = {
-    'ProdA_sales_first12': 1.2,
-    'ProdA_units_first12': 1.1,
-    'competition_sales_first12': 0.9,
-    'competition_units_first12': 0.8,
-    'ProdA_sales_2022': 1.3,
-    'ProdA_units_2022': 1.1,
-    'competition_sales_2022': 0.9,
-    'competition_units_2022': 0.8,
-    'Total 2022 and 2023': 1.0,
-    'ProdA_units_2023': 1.1,
-    'competition_sales_2023': 0.9,
-    'competition_units_2023': 0.8,
-    'analog_1_adopt': 0.7,
-    'analog_2_adopt': 0.6,
-    'analog_3_adopt': 0.5,
-    'quintile_ProdA_totalsales': 1.0,
-    'quintile_ProdB_opportunity': 1.0,
-    'ability_to_influence': 0.8,
-    'percentage_340B_adoption': 0.6
-}
-
-# List of numeric and categorical columns
-numeric_columns = [
-    'ProdA_sales_first12', 'ProdA_units_first12', 'competition_sales_first12', 'competition_units_first12',
-    'ProdA_sales_2022', 'ProdA_units_2022', 'competition_sales_2022', 'competition_units_2022',
-    'ProdA_sales_2023', 'Total 2022 and 2023', 'ProdA_units_2023', 'competition_sales_2023',
-    'competition_units_2023', 'percentage_340B_adoption'
-]
-
-categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -121,7 +88,7 @@ def run_linear_regression(X_train, X_test, y_train, y_test):
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
     
-    st.subheader("Linear Regression Results")
+    st.subheader("📈 Linear Regression Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
     # Plot Actual vs Predicted
@@ -139,7 +106,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
     
-    st.subheader("Random Forest Results")
+    st.subheader("🌲 Random Forest Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
     # Plot Feature Importance
@@ -162,7 +129,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     st.pyplot(fig2)
 
 def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
-    st.subheader("Weighted Scoring Model Results")
+    st.subheader("⚖️ Weighted Scoring Model Results")
     
     # Encode categorical features
     df = encode_categorical_features(df, mappings)
@@ -202,39 +169,83 @@ if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
         st.dataframe(df.head())
-
-        # Let user select the target column
-        possible_targets = [col for col in df.columns if df[col].dtype in ['int64', 'float64']]
-        default_target = 'Total 2022 and 2023' if 'Total 2022 and 2023' in possible_targets else possible_targets[0]
-        target_column = st.selectbox("Select the Target Column for Prediction", options=possible_targets, index=possible_targets.index(default_target) if default_target in possible_targets else 0)
         
-        # Identify target and features
-        if target_column not in df.columns:
-            st.error(f"Target column '{target_column}' not found in the uploaded data.")
-        else:
-            # Separate features and target
-            feature_columns = [col for col in df.columns if col not in [target_column, 'acct_numb', 'acct_name']]
-            X = df[feature_columns]
+        # Identify numeric and categorical columns
+        numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        categorical_columns = df.select_dtypes(include=['object']).columns.tolist()
+        
+        # Let user select the target column using radio buttons
+        st.subheader("Step 2: Select Target and Features")
+        st.write("**Select the Target Variable:**")
+        target_column = st.radio(
+            "Choose one target variable for prediction:",
+            options=numeric_columns
+        )
+        
+        # List of possible features (excluding target, acct_numb, acct_name)
+        possible_features = [col for col in numeric_columns + categorical_columns if col not in [target_column, 'acct_numb', 'acct_name']]
+        
+        # Let user select the number of independent variables
+        max_features = len(possible_features)
+        st.write("**Select Number of Independent Variables:**")
+        num_features = st.slider(
+            "How many independent variables do you want to include?",
+            min_value=1,
+            max_value=min(10, max_features),
+            value=3,
+            step=1
+        )
+        
+        # Let user select specific features
+        st.write("**Select Independent Variables:**")
+        selected_features = st.multiselect(
+            "Choose your features:",
+            options=possible_features,
+            default=possible_features[:num_features],
+            help="Select the features you want to include in the model."
+        )
+        
+        # Ensure the number of selected features matches the user's choice
+        if len(selected_features) < num_features:
+            st.warning(f"You have selected fewer features ({len(selected_features)}) than specified ({num_features}).")
+        elif len(selected_features) > num_features:
+            st.warning(f"You have selected more features ({len(selected_features)}) than specified ({num_features}). Please adjust your selection.")
+        
+        # Proceed only if the number of selected features matches
+        if len(selected_features) == num_features:
+            # Preprocess data based on selected features
+            X = df[selected_features]
             y = df[target_column]
-
+            
             # Handle categorical variables using one-hot encoding
-            X = pd.get_dummies(X, columns=categorical_columns, drop_first=True)
-
+            selected_categorical = [col for col in selected_features if col in categorical_columns]
+            if selected_categorical:
+                X = pd.get_dummies(X, columns=selected_categorical, drop_first=True)
+            
             # Handle missing values (simple strategy: fill with mean for numeric, mode for categorical)
             for col in X.columns:
                 if X[col].dtype == 'object':
                     X[col].fillna(X[col].mode()[0], inplace=True)
                 else:
                     X[col].fillna(X[col].mean(), inplace=True)
-
+            
             # Split the data into training and testing sets
             test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5)
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-            st.write(f"Training samples: {X_train.shape[0]}, Testing samples: {X_test.shape[0]}")
-
-            st.subheader("Step 2: Choose a Model")
-
+            
+            st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+            
+            # Define feature weights based on selected features
+            # For simplicity, assign a default weight of 1.0 to each selected feature
+            feature_weights = {feature: 1.0 for feature in selected_features}
+            # If you have predefined weights, you can update this dictionary accordingly
+            # Example:
+            # predefined_weights = {'feature1': 1.2, 'feature2': 1.1, ...}
+            # feature_weights = {feature: predefined_weights.get(feature, 1.0) for feature in selected_features}
+            
+            # Define model selection and descriptions
+            st.subheader("Step 3: Choose a Model")
+            
             # Define a function to create a styled hyperlink-like button
             def hyperlink_button(text, key):
                 return st.button(
@@ -244,7 +255,7 @@ if uploaded_file is not None:
                     args=None,
                     kwargs=None
                 )
-
+            
             # Function to style buttons to look like hyperlinks
             def style_hyperlink_button(key):
                 st.markdown(f"""
@@ -259,45 +270,45 @@ if uploaded_file is not None:
                     }}
                     </style>
                     """, unsafe_allow_html=True)
-
+            
             col1, col2, col3 = st.columns(3)
-
+            
             with col1:
                 if st.button("Run Linear Regression", key='lr'):
                     st.session_state['selected_model'] = 'linear_regression'
-
+            
                 if hyperlink_button("Description", key='lr_desc'):
                     st.session_state['show_description']['linear_regression'] = not st.session_state['show_description']['linear_regression']
-
+            
                 style_hyperlink_button('lr_desc')
-
+            
                 if st.session_state['show_description']['linear_regression']:
                     st.info("**Linear Regression:** Choose this model if you're working with between 10-50 lines of data.")
-
+            
             with col2:
                 if st.button("Run Random Forest", key='rf'):
                     st.session_state['selected_model'] = 'random_forest'
-
+            
                 if hyperlink_button("Description", key='rf_desc'):
                     st.session_state['show_description']['random_forest'] = not st.session_state['show_description']['random_forest']
-
+            
                 style_hyperlink_button('rf_desc')
-
+            
                 if st.session_state['show_description']['random_forest']:
                     st.info("**Random Forest:** Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
-
+            
             with col3:
                 if st.button("Run Weighted Scoring Model", key='wsm'):
                     st.session_state['selected_model'] = 'weighted_scoring_model'
-
+            
                 if hyperlink_button("Description", key='wsm_desc'):
                     st.session_state['show_description']['weighted_scoring_model'] = not st.session_state['show_description']['weighted_scoring_model']
-
+            
                 style_hyperlink_button('wsm_desc')
-
+            
                 if st.session_state['show_description']['weighted_scoring_model']:
                     st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
-
+            
             # Execute selected model with loading spinner
             if st.session_state['selected_model'] == 'linear_regression':
                 with st.spinner("Training Linear Regression model..."):
@@ -308,7 +319,7 @@ if uploaded_file is not None:
             elif st.session_state['selected_model'] == 'weighted_scoring_model':
                 with st.spinner("Calculating Weighted Scoring Model..."):
                     run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
-
+            
             # Add a "Run a New Model" button after the model has run
             if st.session_state['selected_model'] is not None:
                 st.markdown("<hr>", unsafe_allow_html=True)
@@ -321,6 +332,8 @@ if uploaded_file is not None:
                         'weighted_scoring_model': False
                     }
                     st.experimental_rerun()
-
+        else:
+            st.warning("Please select the exact number of features specified using the slider.")
+    
     except Exception as e:
         st.error(f"An error occurred while processing the file: {e}")
