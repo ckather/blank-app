@@ -55,6 +55,35 @@ def encode_categorical_features(df, mappings):
                 df[feature].fillna(df[feature].mode()[0], inplace=True)
     return df
 
+def generate_account_adoption_rank(df):
+    """
+    Generates the 'Account Adoption Rank Order' based on total sales across different periods.
+    """
+    # Define the columns to sum for ranking (adjust these columns based on your data)
+    sales_columns = [
+        'ProdA_sales_first12',
+        'ProdA_sales_2022',
+        'ProdA_sales_2023',
+        'competition_sales_first12',
+        'competition_sales_2022',
+        'competition_sales_2023',
+        'Total_2022_and_2023'
+    ]
+    
+    # Check if all required sales columns are present
+    missing_columns = [col for col in sales_columns if col not in df.columns]
+    if missing_columns:
+        st.error(f"❌ The following required columns are missing to generate 'Account Adoption Rank Order': {', '.join(missing_columns)}")
+        st.stop()
+    
+    # Calculate total sales
+    df['Total_Sales'] = df[sales_columns].sum(axis=1)
+    
+    # Generate rank order (1 being highest sales)
+    df['Account Adoption Rank Order'] = df['Total_Sales'].rank(method='dense', ascending=False).astype(int)
+    
+    return df
+
 def run_linear_regression(X_train, X_test, y_train, y_test):
     """
     Trains and evaluates a Linear Regression model.
@@ -193,16 +222,16 @@ if st.session_state.step == 1:
         try:
             df = pd.read_csv(uploaded_file)
             st.session_state.df = df  # Store in session state
-            st.success("✅ File uploaded successfully!")
+            
+            # Check and generate 'Account Adoption Rank Order'
+            df = generate_account_adoption_rank(df)
+            st.session_state.df = df  # Update in session state
+            
+            st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
             
             # Display Next button
             if st.button("Next →"):
-                # Check if 'Account Adoption Rank Order' exists in the dataframe
-                if 'Account Adoption Rank Order' in df.columns:
-                    st.session_state.target_column = 'Account Adoption Rank Order'
-                    st.session_state.step = 2
-                else:
-                    st.error("❌ The uploaded file does not contain the required 'Account Adoption Rank Order' column.")
+                st.session_state.step = 2
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
@@ -212,29 +241,26 @@ elif st.session_state.step == 2:
     st.subheader("Step 2: Confirm Target Variable")
     
     # Confirm that the target variable is set
-    target_column = st.session_state.target_column
-    if target_column:
-        st.write(f"**Target Variable:** `{target_column}`")
-        
-        # Display some statistics or information about the target variable
-        if pd.api.types.is_numeric_dtype(df[target_column]):
-            st.write("**Target Variable Statistics:**")
-            st.write(df[target_column].describe())
-        else:
-            st.write("⚠️ The target variable is not numeric. Please ensure it is suitable for regression models.")
-        
-        # Navigation buttons
-        col1, col2 = st.columns([1,1])
-        with col1:
-            if st.button("← Back"):
-                st.session_state.step = 1
-        with col2:
-            if st.button("Next →"):
-                st.session_state.step = 3
+    target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
+    st.session_state.target_column = target_column  # Ensure it's set
+    
+    st.write(f"**Target Variable:** `{target_column}`")
+    
+    # Display some statistics or information about the target variable
+    if pd.api.types.is_numeric_dtype(df[target_column]):
+        st.write("**Target Variable Statistics:**")
+        st.write(df[target_column].describe())
     else:
-        st.error("❌ Target variable not set. Please upload a valid file.")
-        if st.button("Run a New Model 🔄"):
-            reset_app()
+        st.write("⚠️ The target variable is not numeric. Please ensure it is suitable for regression models.")
+    
+    # Navigation buttons
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("← Back"):
+            st.session_state.step = 1
+    with col2:
+        if st.button("Next →"):
+            st.session_state.step = 3
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
@@ -242,8 +268,9 @@ elif st.session_state.step == 3:
     target_column = st.session_state.target_column
     st.subheader("Step 3: Select Independent Variables")
     
-    # Exclude target, 'acct_numb', and 'acct_name' from features
-    possible_features = [col for col in df.columns if col not in [target_column, 'acct_numb', 'acct_name']]
+    # Exclude target and identifier columns from features
+    identifier_columns = ['acct_numb', 'acct_name']
+    possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
     
     # Multiselect for feature selection
     selected_features = st.multiselect(
