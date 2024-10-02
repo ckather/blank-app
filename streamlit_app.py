@@ -11,65 +11,17 @@ from sklearn.metrics import mean_squared_error
 st.title("💊 Pathways Prediction Platform")
 st.write("Upload your data and explore data types and non-numeric values.")
 
-# Add custom CSS for hover tooltips
-st.markdown("""
-    <style>
-    /* Tooltip container */
-    .tooltip {
-      position: relative;
-      display: inline-block;
-      cursor: pointer;
-    }
-
-    /* Tooltip text */
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 200px;
-      background-color: #555;
-      color: #fff;
-      text-align: center;
-      padding: 5px;
-      border-radius: 6px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -100px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-
-    /* Tooltip arrow */
-    .tooltip .tooltiptext::after {
-      content: "";
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      margin-left: -5px;
-      border-width: 5px;
-      border-style: solid;
-      border-color: #555 transparent transparent transparent;
-    }
-
-    /* Show the tooltip text on hover */
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-
-    .tooltip button {
-      cursor: pointer;
-      padding: 10px;
-      border: 1px solid #555;
-      background-color: #f1f1f1;
-      border-radius: 5px;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # Initialize session state for selected model
 if 'selected_model' not in st.session_state:
     st.session_state['selected_model'] = None
+
+# Initialize session state for descriptions
+if 'show_lr_desc' not in st.session_state:
+    st.session_state['show_lr_desc'] = False
+if 'show_rf_desc' not in st.session_state:
+    st.session_state['show_rf_desc'] = False
+if 'show_wsm_desc' not in st.session_state:
+    st.session_state['show_wsm_desc'] = False
 
 # Step 1: Upload CSV and download template
 st.subheader("Step 1: Upload Your CSV File")
@@ -152,44 +104,32 @@ if uploaded_file is not None:
     st.dataframe(df.head())
     
     st.subheader("Step 2: Choose a Model")
-    # Model selection buttons with hover tooltips
+    # Model selection buttons with descriptions as clickable links
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        # Create a single button with hover tooltip for Linear Regression
-        st.markdown(
-            '''
-            <div class="tooltip">
-                <button onclick="window.location.href='';">Run Linear Regression</button>
-                <span class="tooltiptext">Linear Regression: Choose this model if you're working with between 10-50 lines of data.</span>
-            </div>
-            ''', unsafe_allow_html=True)
         if st.button("Run Linear Regression", key='lr'):
             st.session_state['selected_model'] = 'linear_regression'
+        if st.button("Description", key='lr_desc'):
+            st.session_state['show_lr_desc'] = not st.session_state['show_lr_desc']
+        if st.session_state['show_lr_desc']:
+            st.info("Linear Regression: Choose this model if you're working with between 10-50 lines of data.")
 
     with col2:
-        # Create a single button with hover tooltip for Random Forest
-        st.markdown(
-            '''
-            <div class="tooltip">
-                <button onclick="window.location.href='';">Run Random Forest</button>
-                <span class="tooltiptext">Random Forest: Choose this model if you're working with >50 lines of data.</span>
-            </div>
-            ''', unsafe_allow_html=True)
         if st.button("Run Random Forest", key='rf'):
             st.session_state['selected_model'] = 'random_forest'
+        if st.button("Description", key='rf_desc'):
+            st.session_state['show_rf_desc'] = not st.session_state['show_rf_desc']
+        if st.session_state['show_rf_desc']:
+            st.info("Random Forest: Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
 
     with col3:
-        # Create a single button with hover tooltip for Weighted Scoring Model
-        st.markdown(
-            '''
-            <div class="tooltip">
-                <button onclick="window.location.href='';">Run Weighted Scoring Model</button>
-                <span class="tooltiptext">Weighted Scoring Model: Choose this model if you're looking for analysis, not prediction.</span>
-            </div>
-            ''', unsafe_allow_html=True)
         if st.button("Run Weighted Scoring Model", key='wsm'):
             st.session_state['selected_model'] = 'weighted_scoring_model'
+        if st.button("Description", key='wsm_desc'):
+            st.session_state['show_wsm_desc'] = not st.session_state['show_wsm_desc']
+        if st.session_state['show_wsm_desc']:
+            st.info("Weighted Scoring Model: Choose this model if you're looking for analysis, not prediction.")
 
     # Execute selected model
     if st.session_state['selected_model'] == 'linear_regression':
