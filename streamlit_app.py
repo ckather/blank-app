@@ -7,6 +7,9 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
+# Set the page configuration
+st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="centered")
+
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
     st.session_state.step = 1  # Current step: 1 to 4
@@ -143,6 +146,7 @@ def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
 
 # Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
+    st.title("💊 Pathways Prediction Platform")
     st.subheader("Step 1: Upload Your CSV File")
     
     # Provide the download button for the CSV template
@@ -184,15 +188,22 @@ if st.session_state.step == 1:
         "Choose your CSV file:", type="csv", label_visibility="visible"
     )
     
-    # Next button
+    # Next button appears only after successful upload
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
             st.session_state.df = df  # Store in session state
             st.success("✅ File uploaded successfully!")
-            st.session_state.step = 2  # Move to next step
+            st.button("Next →", key='step1_next')
+            if st.session_state.get('step1_next', False):
+                st.session_state.step = 2
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
+    
+    # Handle Next button click
+    if st.session_state.step == 1 and uploaded_file is not None:
+        if st.button("Next →"):
+            st.session_state.step = 2
 
 # Step 2: Select Target Variable
 elif st.session_state.step == 2:
@@ -212,13 +223,13 @@ elif st.session_state.step == 2:
             options=numeric_columns
         )
         
-        # Next and Back buttons
+        # Navigation buttons
         col1, col2 = st.columns([1,1])
         with col1:
-            if st.button("Back"):
+            if st.button("← Back"):
                 st.session_state.step = 1
         with col2:
-            if st.button("Next"):
+            if st.button("Next →"):
                 st.session_state.target_column = target_column
                 st.session_state.step = 3
 
@@ -239,13 +250,13 @@ elif st.session_state.step == 3:
         help="Select one or more features to include in the model."
     )
     
-    # Next and Back buttons
+    # Navigation buttons
     col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("Back"):
+        if st.button("← Back"):
             st.session_state.step = 2
     with col2:
-        if st.button("Next"):
+        if st.button("Next →"):
             if selected_features:
                 st.session_state.selected_features = selected_features
                 st.session_state.step = 4
@@ -263,10 +274,8 @@ elif st.session_state.step == 4:
     
     # Define feature weights for Weighted Scoring Model
     # Assign default weights (1.0) to each selected feature
-    feature_weights = {feature: 1.0 for feature in selected_features}
-    
-    # Allow user to adjust weights if desired (optional)
-    st.write("**Assign Weights to Selected Features (Optional):**")
+    st.markdown("**Assign Weights to Selected Features:**")
+    feature_weights = {}
     for feature in selected_features:
         weight = st.number_input(
             f"Weight for {feature}",
@@ -278,68 +287,28 @@ elif st.session_state.step == 4:
         )
         feature_weights[feature] = weight
     
-    # Define a function to create a styled hyperlink-like button
-    def hyperlink_button(text, key):
-        return st.button(
-            text,
-            key=key,
-            help=None,
-            args=None,
-            kwargs=None
-        )
+    st.markdown("---")
     
-    # Function to style buttons to look like hyperlinks
-    def style_hyperlink_button(key):
-        st.markdown(f"""
-            <style>
-            button[data-testid="stButton"][data-key="{key}"] {{
-                background-color: transparent;
-                color: orange;
-                text-decoration: underline;
-                border: none;
-                padding: 0;
-                margin-top: -10px;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
-    
-    # Model Selection Buttons with Descriptions
+    # Model Selection Buttons
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("Run Linear Regression", key='lr'):
+        if st.button("Linear Regression"):
             st.session_state.selected_model = 'linear_regression'
-    
-        if hyperlink_button("Description", key='lr_desc'):
-            st.session_state.show_description['linear_regression'] = not st.session_state.show_description['linear_regression']
-    
-        style_hyperlink_button('lr_desc')
-    
-        if st.session_state.show_description['linear_regression']:
-            st.info("**Linear Regression:** Choose this model if you're working with between 10-50 lines of data.")
-    
     with col2:
-        if st.button("Run Random Forest", key='rf'):
+        if st.button("Random Forest"):
             st.session_state.selected_model = 'random_forest'
-    
-        if hyperlink_button("Description", key='rf_desc'):
-            st.session_state.show_description['random_forest'] = not st.session_state.show_description['random_forest']
-    
-        style_hyperlink_button('rf_desc')
-    
-        if st.session_state.show_description['random_forest']:
-            st.info("**Random Forest:** Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
-    
     with col3:
-        if st.button("Run Weighted Scoring Model", key='wsm'):
+        if st.button("Weighted Scoring Model"):
             st.session_state.selected_model = 'weighted_scoring_model'
     
-        if hyperlink_button("Description", key='wsm_desc'):
-            st.session_state.show_description['weighted_scoring_model'] = not st.session_state.show_description['weighted_scoring_model']
-    
-        style_hyperlink_button('wsm_desc')
-    
-        if st.session_state.show_description['weighted_scoring_model']:
+    # Show description if model is selected
+    if st.session_state.selected_model:
+        if st.session_state.selected_model == 'linear_regression':
+            st.info("**Linear Regression:** Choose this model if you're working with between 10-50 lines of data.")
+        elif st.session_state.selected_model == 'random_forest':
+            st.info("**Random Forest:** Choose this model if you're working with >50 lines of data and want to leverage predictive power.")
+        elif st.session_state.selected_model == 'weighted_scoring_model':
             st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
     
     # Run Model Button
@@ -378,13 +347,16 @@ elif st.session_state.step == 4:
                 with st.spinner("Calculating Weighted Scoring Model..."):
                     run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
     
-    # Back and Reset Buttons
-    st.markdown("<hr>", unsafe_allow_html=True)
-    col_back, col_reset = st.columns([1,1])
+    st.markdown("---")
+    
+    # Navigation buttons
+    col_back, col_run, col_reset = st.columns([1,1,1])
     with col_back:
-        if st.button("Back"):
+        if st.button("← Back"):
             st.session_state.step = 3
             st.session_state.selected_model = None
+    with col_run:
+        pass  # Placeholder for alignment
     with col_reset:
         if st.button("Run a New Model 🔄"):
             reset_app()
