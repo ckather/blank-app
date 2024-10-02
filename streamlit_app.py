@@ -251,23 +251,13 @@ if st.session_state.step == 1:
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Confirm Target Variable
+# Step 2: Confirm Target Variable (Modified)
 elif st.session_state.step == 2:
-    df = st.session_state.df
-    st.subheader("Step 2: Confirm Target Variable")
-    
-    # Confirm that the target variable is set
-    target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
-    st.session_state.target_column = target_column  # Ensure it's set
-    
-    st.write(f"**Target Variable:** `{target_column}`")
-    
-    # Display some statistics or information about the target variable
-    if pd.api.types.is_numeric_dtype(df[target_column]):
-        st.write("**Target Variable Statistics:**")
-        st.write(df[target_column].describe())
-    else:
-        st.write("⚠️ The target variable is not numeric. Please ensure it is suitable for regression models.")
+    st.subheader("Step 2: Understanding the Process")
+    st.write("""
+        In the next steps, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
+        This guided process ensures that you choose the most relevant features for accurate predictions.
+    """)
     
     # Navigation buttons
     col1, col2 = st.columns([1,1])
