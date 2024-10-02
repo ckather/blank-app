@@ -369,7 +369,7 @@ elif st.session_state.step == 4:
             min_value=0.0,
             max_value=1.0,
             value=round(1.0 / len(selected_features), 2),  # Default value based on number of features
-            step=0.01,
+            step=0.05,  # Multiples of 0.05
             key=f"weight_{feature}"
         )
         feature_weights[feature] = weight
@@ -379,15 +379,33 @@ elif st.session_state.step == 4:
     
     # Display the total weight in a fun way using a progress bar and emojis
     st.markdown("---")
-    st.markdown("### 🎯 Total Weight Assigned:")
-    progress = total_weight
-    if progress > 1.0:
-        progress = 1.0  # Cap at 100%
-    elif progress < 1.0:
-        progress = progress  # Allow partial fill
-    st.progress(progress)
-    st.write(f"**Total Weight:** {total_weight:.2f}")
+    st.markdown("### 🎯 **Total Weight Assigned:**")
     
+    # Determine progress and corresponding emoji and color
+    if total_weight < 1.0:
+        emoji = "🟡"  # Yellow
+        color = "yellow"
+    elif total_weight > 1.0:
+        emoji = "🔴"  # Red
+        color = "red"
+    else:
+        emoji = "🟢"  # Green
+        color = "green"
+    
+    # Custom HTML to style the total weight display
+    st.markdown(
+        f"""
+        <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+            <h3 style="color:white; text-align:center;">{emoji} Total Weight: {total_weight:.2f}</h3>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Progress bar representation
+    st.progress(min(total_weight, 1.0))  # Cap at 1.0 for the progress bar
+    
+    # Normalize weights if they do not sum to 1
     if total_weight != 1.0:
         st.warning("⚠️ The total weight does not equal **1**. The weights will be normalized automatically.")
         # Normalize weights
