@@ -370,82 +370,66 @@ elif st.session_state.step == 4:
     # Add a simple text description at the top
     st.write("""
         Assign how important each feature is in determining the **Account Adoption Rank Order**. 
-        The weights must add up to **1**. You can assign the same weight to multiple features if they are equally important.
+        The weights must add up to **10**. You can assign the same weight to multiple features if they are equally important.
     """)
     
-    # Radio button to choose input method
-    input_method = st.radio(
-        "Choose your weight assignment method:",
-        options=["Sliders (Multiples of 0.05)", "Text Boxes (Enter Weights)"],
-        index=0,
-        horizontal=True
-    )
+    # Radio button to choose input method (sliders replaced with input boxes)
+    # Removed sliders as per user request and replaced with input boxes
+    # Users enter numbers from 1 to 10, with total adding up to 10
     
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
     
-    # Assign weights based on selected input method
-    if input_method == "Sliders (Multiples of 0.05)":
-        for feature in selected_features:
-            weight = st.slider(
-                f"Weight for **{feature}**",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.0,  # Default initial value of zero
-                step=0.05,  # Multiples of 0.05
-                key=f"weight_slider_{feature}"
-            )
-            feature_weights[feature] = weight
-    else:
-        for feature in selected_features:
-            weight = st.number_input(
-                f"Weight for **{feature}**",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.0,  # Default initial value of zero
-                step=0.05,  # Multiples of 0.05
-                format="%.2f",
-                key=f"weight_input_{feature}"
-            )
-            feature_weights[feature] = weight
+    st.markdown("### 🔢 **Enter Weights for Each Feature (1-10):**")
+    
+    for feature in selected_features:
+        weight = st.number_input(
+            f"Weight for **{feature}**:",
+            min_value=1,
+            max_value=10,
+            value=1,
+            step=1,
+            key=f"weight_input_{feature}"
+        )
+        feature_weights[feature] = weight
     
     # Calculate total weight
     total_weight = sum(feature_weights.values())
     
-    # Display the total weight in a fun way with color-coding
+    # Display the total weight with validation
     st.markdown("---")
     st.markdown("### 🎯 **Total Weight Assigned:**")
     
-    # Determine color and emoji based on total weight
-    if total_weight < 1.0:
-        emoji = "🟡"  # Yellow
-        color = "#FFC107"  # Yellow color code
-    elif total_weight > 1.0:
-        emoji = "🔴"  # Red
-        color = "#DC3545"  # Red color code
+    # Determine status based on total weight
+    if total_weight < 10:
+        status = f"❗ Total weight is **{total_weight}**, which is less than **10**."
+        color = "#FFC107"  # Yellow
+    elif total_weight > 10:
+        status = f"❗ Total weight is **{total_weight}**, which is more than **10**."
+        color = "#DC3545"  # Red
     else:
-        emoji = "🟢"  # Green
-        color = "#28A745"  # Green color code
+        status = f"✅ Total weight is **{total_weight}**, which meets the requirement."
+        color = "#28A745"  # Green
     
-    # Custom HTML to style the total weight display
+    # Display status with colored background
     st.markdown(
         f"""
         <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
-            <h3 style="color:white; text-align:center;">{emoji} Total Weight: {total_weight:.2f}</h3>
+            <h3 style="color:white; text-align:center;">{status}</h3>
         </div>
         """,
         unsafe_allow_html=True
     )
     
-    # Progress bar representation
-    st.progress(min(total_weight, 1.0))  # Cap at 1.0 for the progress bar
+    # Display a progress bar
+    st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
     
-    # Normalize weights if they do not sum to 1
-    if total_weight != 1.0:
-        st.warning("⚠️ The total weight does not equal **1**. The weights will be normalized automatically.")
+    # Normalize weights if they do not sum to 10
+    if total_weight != 10:
+        st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
         # Normalize weights
         if total_weight > 0:
-            normalized_weights = {feature: weight / total_weight for feature, weight in feature_weights.items()}
+            normalized_weights = {feature: weight / total_weight * 10 for feature, weight in feature_weights.items()}
         else:
             normalized_weights = feature_weights  # Avoid division by zero
     else:
@@ -508,7 +492,7 @@ elif st.session_state.step == 4:
                     run_linear_regression(X, y)
             elif st.session_state.selected_model == 'random_forest':
                 # Split the data into training and testing sets
-                test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider_random_forest')
+                test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider_rf')
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
                 
                 st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
