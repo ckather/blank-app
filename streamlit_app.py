@@ -97,7 +97,23 @@ numeric_columns = [
 
 categorical_columns = ['analog_1_adopt', 'analog_2_adopt', 'analog_3_adopt']
 
-# Define model functions
+# Define mappings for categorical features
+categorical_mappings = {
+    'analog_1_adopt': {'low': 1, 'medium': 2, 'high': 3},
+    'analog_2_adopt': {'low': 1, 'medium': 2, 'high': 3},
+    'analog_3_adopt': {'low': 1, 'medium': 2, 'high': 3}
+}
+
+# Define helper functions
+
+def encode_categorical_features(df, mappings):
+    for feature, mapping in mappings.items():
+        if feature in df.columns:
+            df[feature] = df[feature].map(mapping)
+            if df[feature].isnull().any():
+                st.warning(f"Some values in '{feature}' couldn't be mapped and are set to NaN.")
+                df[feature].fillna(df[feature].mode()[0], inplace=True)
+    return df
 
 def run_linear_regression(X_train, X_test, y_train, y_test):
     model = LinearRegression()
@@ -145,14 +161,20 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     ax2.set_title("Actual vs Predicted")
     st.pyplot(fig2)
 
-def run_weighted_scoring_model(df, feature_weights, target_column):
+def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
     st.subheader("Weighted Scoring Model Results")
+    
+    # Encode categorical features
+    df = encode_categorical_features(df, mappings)
     
     # Calculate weighted score
     score = 0
     for feature, weight in feature_weights.items():
         if feature in df.columns:
-            score += df[feature] * weight
+            if pd.api.types.is_numeric_dtype(df[feature]):
+                score += df[feature] * weight
+            else:
+                st.warning(f"Feature '{feature}' is not numeric and will be skipped.")
         else:
             st.warning(f"Feature '{feature}' not found in the data. Skipping its weight.")
     
@@ -184,7 +206,7 @@ if uploaded_file is not None:
         # Let user select the target column
         possible_targets = [col for col in df.columns if df[col].dtype in ['int64', 'float64']]
         default_target = 'Total 2022 and 2023' if 'Total 2022 and 2023' in possible_targets else possible_targets[0]
-        target_column = st.selectbox("Select the Target Column for Prediction", options=possible_targets, index=possible_targets.index(default_target))
+        target_column = st.selectbox("Select the Target Column for Prediction", options=possible_targets, index=possible_targets.index(default_target) if default_target in possible_targets else 0)
         
         # Identify target and features
         if target_column not in df.columns:
@@ -285,7 +307,7 @@ if uploaded_file is not None:
                     run_random_forest(X_train, X_test, y_train, y_test)
             elif st.session_state['selected_model'] == 'weighted_scoring_model':
                 with st.spinner("Calculating Weighted Scoring Model..."):
-                    run_weighted_scoring_model(df, feature_weights, target_column)
+                    run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
 
             # Add a "Run a New Model" button after the model has run
             if st.session_state['selected_model'] is not None:
