@@ -246,7 +246,7 @@ if st.session_state.step == 1:
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
             
             # Display Next button
-            if st.button("Next →"):
+            if st.button("Next →", key='next_step1'):
                 st.session_state.step = 2
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
@@ -267,13 +267,13 @@ elif st.session_state.step == 2:
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
-    # Navigation buttons
+    # Navigation buttons with unique keys
     col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("← Back"):
+        if st.button("← Back", key='back_step2'):
             st.session_state.step = 1
     with col2:
-        if st.button("Next →"):
+        if st.button("Next →", key='next_step2'):
             st.session_state.step = 3
 
 # Step 3: Select Independent Variables
@@ -286,21 +286,22 @@ elif st.session_state.step == 3:
     identifier_columns = ['acct_numb', 'acct_name']
     possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
     
-    # Multiselect for feature selection
+    # Multiselect for feature selection with a unique key
     selected_features = st.multiselect(
         "Choose your independent variables (features):",
         options=possible_features,
         default=possible_features[:3],  # Default selection
-        help="Select one or more features to include in the model."
+        help="Select one or more features to include in the model.",
+        key='feature_selection'
     )
     
-    # Navigation buttons
+    # Navigation buttons with unique keys
     col1, col2 = st.columns([1,1])
     with col1:
-        if st.button("← Back"):
+        if st.button("← Back", key='back_step3'):
             st.session_state.step = 2
     with col2:
-        if st.button("Next →"):
+        if st.button("Next →", key='next_step3'):
             if selected_features:
                 st.session_state.selected_features = selected_features
                 st.session_state.step = 4
@@ -333,17 +334,17 @@ elif st.session_state.step == 4:
     
     st.markdown("---")
     
-    # Model Selection Buttons
+    # Model Selection Buttons with unique keys
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("Linear Regression"):
+        if st.button("Linear Regression", key='model_linear_regression'):
             st.session_state.selected_model = 'linear_regression'
     with col2:
-        if st.button("Random Forest"):
+        if st.button("Random Forest", key='model_random_forest'):
             st.session_state.selected_model = 'random_forest'
     with col3:
-        if st.button("Weighted Scoring Model"):
+        if st.button("Weighted Scoring Model", key='model_weighted_scoring'):
             st.session_state.selected_model = 'weighted_scoring_model'
     
     # Show description if model is selected
@@ -355,9 +356,9 @@ elif st.session_state.step == 4:
         elif st.session_state.selected_model == 'weighted_scoring_model':
             st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
     
-    # Run Model Button
+    # Run Model Button with a unique key
     if st.session_state.selected_model:
-        if st.button("Run Model"):
+        if st.button("Run Model", key='run_model'):
             # Preprocess data
             X = df[selected_features]
             y = df[target_column]
@@ -393,14 +394,14 @@ elif st.session_state.step == 4:
     
     st.markdown("---")
     
-    # Navigation buttons
+    # Navigation buttons with unique keys
     col_back, col_run, col_reset = st.columns([1,1,1])
     with col_back:
-        if st.button("← Back"):
+        if st.button("← Back", key='back_step4'):
             st.session_state.step = 3
             st.session_state.selected_model = None
     with col_run:
         pass  # Placeholder for alignment
     with col_reset:
-        if st.button("Run a New Model 🔄"):
+        if st.button("Run a New Model 🔄", key='reset_app'):
             reset_app()
