@@ -508,7 +508,7 @@ elif st.session_state.step == 4:
                     run_linear_regression(X, y)
             elif st.session_state.selected_model == 'random_forest':
                 # Split the data into training and testing sets
-                test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+                test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider_random_forest')
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
                 
                 st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
