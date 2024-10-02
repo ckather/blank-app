@@ -7,23 +7,41 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
-# Initialize session state for navigation
+# Initialize session state variables
 if 'step' not in st.session_state:
-    st.session_state.step = 1
+    st.session_state.step = 1  # Current step: 1 to 4
 
-# Function to reset the app
-def reset_app():
-    st.session_state.step = 1
-    st.session_state.selected_model = None
+if 'df' not in st.session_state:
+    st.session_state.df = None  # Uploaded DataFrame
+
+if 'target_column' not in st.session_state:
+    st.session_state.target_column = None  # Selected target variable
+
+if 'selected_features' not in st.session_state:
+    st.session_state.selected_features = []  # Selected independent variables
+
+if 'selected_model' not in st.session_state:
+    st.session_state.selected_model = None  # Selected model
+
+if 'show_description' not in st.session_state:
     st.session_state.show_description = {
         'linear_regression': False,
         'random_forest': False,
         'weighted_scoring_model': False
     }
 
-# Set the title of the app
-st.title("💊 Pathways Prediction Platform")
-st.write("Upload your data, select target and features, and run predictive models.")
+# Function to reset the app to Step 1
+def reset_app():
+    st.session_state.step = 1
+    st.session_state.df = None
+    st.session_state.target_column = None
+    st.session_state.selected_features = []
+    st.session_state.selected_model = None
+    st.session_state.show_description = {
+        'linear_regression': False,
+        'random_forest': False,
+        'weighted_scoring_model': False
+    }
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -35,6 +53,9 @@ categorical_mappings = {
 # Define helper functions
 
 def encode_categorical_features(df, mappings):
+    """
+    Encodes categorical features based on provided mappings.
+    """
     for feature, mapping in mappings.items():
         if feature in df.columns:
             df[feature] = df[feature].map(mapping)
@@ -44,6 +65,9 @@ def encode_categorical_features(df, mappings):
     return df
 
 def run_linear_regression(X_train, X_test, y_train, y_test):
+    """
+    Trains and evaluates a Linear Regression model.
+    """
     model = LinearRegression()
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
@@ -62,6 +86,9 @@ def run_linear_regression(X_train, X_test, y_train, y_test):
     st.pyplot(fig)
 
 def run_random_forest(X_train, X_test, y_train, y_test):
+    """
+    Trains and evaluates a Random Forest Regressor.
+    """
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
@@ -90,42 +117,43 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     st.pyplot(fig2)
 
 def run_weighted_scoring_model(df, feature_weights, target_column, mappings):
+    """
+    Calculates and evaluates a Weighted Scoring Model based on selected features and their weights.
+    """
     st.subheader("⚖️ Weighted Scoring Model Results")
     
     # Encode categorical features
-    df = encode_categorical_features(df, mappings)
+    df_encoded = encode_categorical_features(df.copy(), mappings)
     
     # Calculate weighted score
-    score = 0
+    df_encoded['Weighted_Score'] = 0
     for feature, weight in feature_weights.items():
-        if feature in df.columns:
-            if pd.api.types.is_numeric_dtype(df[feature]):
-                score += df[feature] * weight
+        if feature in df_encoded.columns:
+            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
+                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
             else:
-                st.warning(f"Feature '{feature}' is not numeric and will be skipped.")
+                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
         else:
-            st.warning(f"Feature '{feature}' not found in the data. Skipping its weight.")
-    
-    df['Weighted_Score'] = score
+            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
     
     # Correlation with target
-    correlation = df['Weighted_Score'].corr(df[target_column])
+    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
     st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
     
     # Display top accounts based on score
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
-    top_accounts = df[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
     st.dataframe(top_accounts)
     
     # Plot Weighted Score vs Target
     fig, ax = plt.subplots()
-    ax.scatter(df['Weighted_Score'], df[target_column], alpha=0.7)
+    ax.scatter(df_encoded['Weighted_Score'], df_encoded[target_column], alpha=0.7)
     ax.set_xlabel("Weighted Score")
     ax.set_ylabel(target_column)
     ax.set_title("Weighted Score vs Actual")
     st.pyplot(fig)
 
-# Step 1: Upload CSV and download template
+# Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
     st.subheader("Step 1: Upload Your CSV File")
     
@@ -160,25 +188,26 @@ if st.session_state.step == 1:
         mime='text/csv'
     )
     
-    # Add a little space for better UI design
+    # Add some space
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Upload box for CSV
+    # File uploader
     uploaded_file = st.file_uploader(
-        "Now, choose your CSV file:", type="csv", label_visibility="visible"
+        "Choose your CSV file:", type="csv", label_visibility="visible"
     )
     
+    # Next button
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
+            st.session_state.df = df  # Store in session state
             st.success("✅ File uploaded successfully!")
-            st.session_state.df = df  # Store dataframe in session state
             st.session_state.step = 2  # Move to next step
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
 # Step 2: Select Target Variable
-if st.session_state.step == 2:
+elif st.session_state.step == 2:
     df = st.session_state.df
     st.subheader("Step 2: Select Target Variable")
     
@@ -187,19 +216,25 @@ if st.session_state.step == 2:
     
     if not numeric_columns:
         st.error("❌ No numeric columns found in the uploaded data to select as target.")
-        st.stop()
-    
-    target_column = st.radio(
-        "Choose one target variable for prediction:",
-        options=numeric_columns
-    )
-    
-    if target_column:
-        st.session_state.target_column = target_column
-        st.session_state.step = 3  # Move to next step
+        reset_app()
+    else:
+        target_column = st.radio(
+            "Choose one target variable for prediction:",
+            options=numeric_columns
+        )
+        
+        # Next and Back buttons
+        col1, col2 = st.columns([1,1])
+        with col1:
+            if st.button("Back"):
+                st.session_state.step = 1
+        with col2:
+            if st.button("Next"):
+                st.session_state.target_column = target_column
+                st.session_state.step = 3
 
 # Step 3: Select Independent Variables
-if st.session_state.step == 3:
+elif st.session_state.step == 3:
     df = st.session_state.df
     target_column = st.session_state.target_column
     st.subheader("Step 3: Select Independent Variables")
@@ -207,7 +242,7 @@ if st.session_state.step == 3:
     # Exclude target, 'acct_numb', and 'acct_name' from features
     possible_features = [col for col in df.columns if col not in [target_column, 'acct_numb', 'acct_name']]
     
-    # Display available features
+    # Multiselect for feature selection
     selected_features = st.multiselect(
         "Choose your independent variables (features):",
         options=possible_features,
@@ -215,58 +250,44 @@ if st.session_state.step == 3:
         help="Select one or more features to include in the model."
     )
     
-    if selected_features:
-        st.session_state.selected_features = selected_features
-        st.session_state.step = 4  # Move to next step
-    else:
-        st.warning("⚠️ Please select at least one independent variable.")
+    # Next and Back buttons
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("Back"):
+            st.session_state.step = 2
+    with col2:
+        if st.button("Next"):
+            if selected_features:
+                st.session_state.selected_features = selected_features
+                st.session_state.step = 4
+            else:
+                st.warning("⚠️ Please select at least one independent variable.")
 
 # Step 4: Choose and Run Model
-if st.session_state.step == 4:
+elif st.session_state.step == 4:
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
     
-    st.subheader("Step 4: Choose a Model")
+    st.subheader("Step 4: Choose and Run Model")
     st.write("Select the predictive model you want to run based on your selected features.")
     
-    # Define feature weights based on selected features for Weighted Scoring Model
-    # Assign default weights (1.0) or customize as needed
+    # Define feature weights for Weighted Scoring Model
+    # Assign default weights (1.0) to each selected feature
     feature_weights = {feature: 1.0 for feature in selected_features}
     
-    # Handle categorical features
-    categorical_columns = [col for col in selected_features if df[col].dtype == 'object']
-    
-    # Handle feature encoding
-    X = df[selected_features]
-    y = df[target_column]
-    
-    if categorical_columns:
-        X = pd.get_dummies(X, columns=categorical_columns, drop_first=True)
-    
-    # Handle missing values
-    for col in X.columns:
-        if X[col].dtype == 'object':
-            X[col].fillna(X[col].mode()[0], inplace=True)
-        else:
-            X[col].fillna(X[col].mean(), inplace=True)
-    
-    # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-    
-    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
-    
-    # Initialize session state for selected model and descriptions if not already
-    if 'selected_model' not in st.session_state:
-        st.session_state['selected_model'] = None
-    
-    if 'show_description' not in st.session_state:
-        st.session_state['show_description'] = {
-            'linear_regression': False,
-            'random_forest': False,
-            'weighted_scoring_model': False
-        }
+    # Allow user to adjust weights if desired (optional)
+    st.write("**Assign Weights to Selected Features (Optional):**")
+    for feature in selected_features:
+        weight = st.number_input(
+            f"Weight for {feature}",
+            min_value=0.0,
+            max_value=5.0,
+            value=1.0,
+            step=0.1,
+            key=f"weight_{feature}"
+        )
+        feature_weights[feature] = weight
     
     # Define a function to create a styled hyperlink-like button
     def hyperlink_button(text, key):
@@ -293,6 +314,7 @@ if st.session_state.step == 4:
             </style>
             """, unsafe_allow_html=True)
     
+    # Model Selection Buttons with Descriptions
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -331,20 +353,49 @@ if st.session_state.step == 4:
         if st.session_state.show_description['weighted_scoring_model']:
             st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
     
-    # Execute selected model with loading spinner
-    if st.session_state.selected_model == 'linear_regression':
-        with st.spinner("Training Linear Regression model..."):
-            run_linear_regression(X_train, X_test, y_train, y_test)
-    elif st.session_state.selected_model == 'random_forest':
-        with st.spinner("Training Random Forest model..."):
-            run_random_forest(X_train, X_test, y_train, y_test)
-    elif st.session_state.selected_model == 'weighted_scoring_model':
-        with st.spinner("Calculating Weighted Scoring Model..."):
-            run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
+    # Run Model Button
+    if st.session_state.selected_model:
+        if st.button("Run Model"):
+            # Preprocess data
+            X = df[selected_features]
+            y = df[target_column]
+            
+            # Handle categorical variables using one-hot encoding
+            selected_categorical = [col for col in selected_features if df[col].dtype == 'object']
+            if selected_categorical:
+                X = pd.get_dummies(X, columns=selected_categorical, drop_first=True)
+            
+            # Handle missing values
+            for col in X.columns:
+                if X[col].dtype == 'object':
+                    X[col].fillna(X[col].mode()[0], inplace=True)
+                else:
+                    X[col].fillna(X[col].mean(), inplace=True)
+            
+            # Split the data into training and testing sets
+            test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+            
+            st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+            
+            # Execute selected model with loading spinner
+            if st.session_state.selected_model == 'linear_regression':
+                with st.spinner("Training Linear Regression model..."):
+                    run_linear_regression(X_train, X_test, y_train, y_test)
+            elif st.session_state.selected_model == 'random_forest':
+                with st.spinner("Training Random Forest model..."):
+                    run_random_forest(X_train, X_test, y_train, y_test)
+            elif st.session_state.selected_model == 'weighted_scoring_model':
+                with st.spinner("Calculating Weighted Scoring Model..."):
+                    run_weighted_scoring_model(df, feature_weights, target_column, categorical_mappings)
     
-    # Add a "Run a New Model" button after the model has run
-    if st.session_state.selected_model is not None:
-        st.markdown("<hr>", unsafe_allow_html=True)
+    # Back and Reset Buttons
+    st.markdown("<hr>", unsafe_allow_html=True)
+    col_back, col_reset = st.columns([1,1])
+    with col_back:
+        if st.button("Back"):
+            st.session_state.step = 3
+            st.session_state.selected_model = None
+    with col_reset:
         if st.button("Run a New Model 🔄"):
             reset_app()
-
