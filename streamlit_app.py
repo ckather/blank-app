@@ -152,7 +152,6 @@ if uploaded_file is not None:
     st.dataframe(df.head())
     
     st.subheader("Step 2: Choose a Model")
-
     # Model selection buttons with hover tooltips
     col1, col2, col3 = st.columns(3)
 
@@ -161,7 +160,7 @@ if uploaded_file is not None:
         st.markdown(
             '''
             <div class="tooltip">
-                <button>Run Linear Regression</button>
+                <button onclick="window.location.href='';">Run Linear Regression</button>
                 <span class="tooltiptext">Linear Regression: Choose this model if you're working with between 10-50 lines of data.</span>
             </div>
             ''', unsafe_allow_html=True)
@@ -173,7 +172,7 @@ if uploaded_file is not None:
         st.markdown(
             '''
             <div class="tooltip">
-                <button>Run Random Forest</button>
+                <button onclick="window.location.href='';">Run Random Forest</button>
                 <span class="tooltiptext">Random Forest: Choose this model if you're working with >50 lines of data.</span>
             </div>
             ''', unsafe_allow_html=True)
@@ -185,7 +184,7 @@ if uploaded_file is not None:
         st.markdown(
             '''
             <div class="tooltip">
-                <button>Run Weighted Scoring Model</button>
+                <button onclick="window.location.href='';">Run Weighted Scoring Model</button>
                 <span class="tooltiptext">Weighted Scoring Model: Choose this model if you're looking for analysis, not prediction.</span>
             </div>
             ''', unsafe_allow_html=True)
