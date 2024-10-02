@@ -197,27 +197,31 @@ if st.session_state.step == 1:
             
             # Display Next button
             if st.button("Next →"):
-                st.session_state.step = 2
+                # Check if 'Account Adoption Rank Order' exists in the dataframe
+                if 'Account Adoption Rank Order' in df.columns:
+                    st.session_state.target_column = 'Account Adoption Rank Order'
+                    st.session_state.step = 2
+                else:
+                    st.error("❌ The uploaded file does not contain the required 'Account Adoption Rank Order' column.")
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Select Target Variable
+# Step 2: Confirm Target Variable
 elif st.session_state.step == 2:
     df = st.session_state.df
-    st.subheader("Step 2: Select Target Variable")
+    st.subheader("Step 2: Confirm Target Variable")
     
-    # Identify numeric columns for target selection
-    numeric_columns = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
-    
-    if not numeric_columns:
-        st.error("❌ No numeric columns found in the uploaded data to select as target.")
-        if st.button("Run a New Model 🔄"):
-            reset_app()
-    else:
-        target_column = st.radio(
-            "Choose one target variable for prediction:",
-            options=numeric_columns
-        )
+    # Confirm that the target variable is set
+    target_column = st.session_state.target_column
+    if target_column:
+        st.write(f"**Target Variable:** `{target_column}`")
+        
+        # Display some statistics or information about the target variable
+        if pd.api.types.is_numeric_dtype(df[target_column]):
+            st.write("**Target Variable Statistics:**")
+            st.write(df[target_column].describe())
+        else:
+            st.write("⚠️ The target variable is not numeric. Please ensure it is suitable for regression models.")
         
         # Navigation buttons
         col1, col2 = st.columns([1,1])
@@ -226,8 +230,11 @@ elif st.session_state.step == 2:
                 st.session_state.step = 1
         with col2:
             if st.button("Next →"):
-                st.session_state.target_column = target_column
                 st.session_state.step = 3
+    else:
+        st.error("❌ Target variable not set. Please upload a valid file.")
+        if st.button("Run a New Model 🔄"):
+            reset_app()
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
@@ -356,4 +363,3 @@ elif st.session_state.step == 4:
     with col_reset:
         if st.button("Run a New Model 🔄"):
             reset_app()
-
