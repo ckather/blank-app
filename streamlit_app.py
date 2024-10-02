@@ -194,16 +194,12 @@ if st.session_state.step == 1:
             df = pd.read_csv(uploaded_file)
             st.session_state.df = df  # Store in session state
             st.success("✅ File uploaded successfully!")
-            st.button("Next →", key='step1_next')
-            if st.session_state.get('step1_next', False):
+            
+            # Display Next button
+            if st.button("Next →"):
                 st.session_state.step = 2
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
-    
-    # Handle Next button click
-    if st.session_state.step == 1 and uploaded_file is not None:
-        if st.button("Next →"):
-            st.session_state.step = 2
 
 # Step 2: Select Target Variable
 elif st.session_state.step == 2:
@@ -360,3 +356,4 @@ elif st.session_state.step == 4:
     with col_reset:
         if st.button("Run a New Model 🔄"):
             reset_app()
+
