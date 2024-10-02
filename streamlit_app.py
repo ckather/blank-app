@@ -58,6 +58,7 @@ def encode_categorical_features(df, mappings):
 def generate_account_adoption_rank(df):
     """
     Generates the 'Account Adoption Rank Order' based on total sales across different periods.
+    If 'Total_2022_and_2023' is missing, it calculates it using available sales columns.
     """
     # Define the columns to sum for ranking (adjust these columns based on your data)
     sales_columns = [
@@ -66,9 +67,24 @@ def generate_account_adoption_rank(df):
         'ProdA_sales_2023',
         'competition_sales_first12',
         'competition_sales_2022',
-        'competition_sales_2023',
-        'Total_2022_and_2023'
+        'competition_sales_2023'
     ]
+    
+    # Check if 'Total_2022_and_2023' exists; if not, compute it
+    if 'Total_2022_and_2023' not in df.columns:
+        required_for_total = ['ProdA_sales_2022', 'ProdA_sales_2023', 'competition_sales_2022', 'competition_sales_2023']
+        missing_total_cols = [col for col in required_for_total if col not in df.columns]
+        if missing_total_cols:
+            st.error(f"❌ To compute 'Total_2022_and_2023', the following columns are missing: {', '.join(missing_total_cols)}")
+            st.stop()
+        df['Total_2022_and_2023'] = df['ProdA_sales_2022'] + df['ProdA_sales_2023'] + df['competition_sales_2022'] + df['competition_sales_2023']
+        st.info("'Total_2022_and_2023' column was missing and has been computed automatically.")
+    else:
+        st.info("'Total_2022_and_2023' column found in the uploaded file.")
+    
+    # Add 'Total_2022_and_2023' to sales_columns if not already present
+    if 'Total_2022_and_2023' not in sales_columns:
+        sales_columns.append('Total_2022_and_2023')
     
     # Check if all required sales columns are present
     missing_columns = [col for col in sales_columns if col not in df.columns]
@@ -193,7 +209,7 @@ if st.session_state.step == 1:
             'competition_sales_2022': [10000, 11000, 10500],
             'competition_units_2022': [100, 110, 105],
             'ProdA_sales_2023': [30000, 35000, 32000],
-            'Total_2022_and_2023': [50000, 60000, 54000],
+            # 'Total_2022_and_2023' is intentionally omitted
             'ProdA_units_2023': [300, 350, 320],
             'competition_sales_2023': [15000, 16000, 15500],
             'competition_units_2023': [150, 160, 155],
@@ -217,7 +233,7 @@ if st.session_state.step == 1:
         "Choose your CSV file:", type="csv", label_visibility="visible"
     )
     
-    # Next button appears only after successful upload
+    # Next button appears only after successful upload and rank generation
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
