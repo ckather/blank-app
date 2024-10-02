@@ -113,7 +113,7 @@ def generate_account_adoption_rank(df):
 
 def run_linear_regression(X, y):
     """
-    Trains and evaluates a Linear Regression model.
+    Trains and evaluates a Linear Regression model using the entire dataset.
     """
     model = LinearRegression()
     model.fit(X, y)
@@ -229,14 +229,14 @@ def render_sidebar():
     
     for i, title in enumerate(step_titles, 1):
         if i < current_step:
-            # Completed steps with green check marks
-            st.sidebar.markdown(f"### Step {i}: {title} ✅")
+            # Completed steps with check marks
+            st.sidebar.markdown(f"### ✅ Step {i}: {title}")
         elif i == current_step:
-            # Current step with highlighted text and empty circle
-            st.sidebar.markdown(f"### Step {i}: {title} ⭕")
+            # Current step highlighted
+            st.sidebar.markdown(f"### **🔵 Step {i}: {title}**")
         else:
-            # Upcoming steps with no check marks
-            st.sidebar.markdown(f"### Step {i}: {title} ⭕")
+            # Upcoming steps without check marks
+            st.sidebar.markdown(f"### Step {i}: {title}")
 
 # Render the sidebar with step highlighting and check marks
 render_sidebar()
@@ -297,7 +297,7 @@ if st.session_state.step == 1:
             
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
             
-            # Display Next button
+            # Display Next button with callback
             st.button("Next →", on_click=next_step, key='next_step1')
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
@@ -339,7 +339,7 @@ elif st.session_state.step == 3:
     selected_features = st.multiselect(
         "Choose your independent variables (features):",
         options=possible_features,
-        default=[],  # No default selection
+        default=possible_features[:3],  # Default selection
         help="Select one or more features to include in the model.",
         key='feature_selection'
     )
@@ -365,7 +365,6 @@ elif st.session_state.step == 4:
     st.write("Select the predictive model you want to run based on your selected features.")
     
     # Define feature weights for Weighted Scoring Model
-    # Assign default weights based on number of features
     st.markdown("**Assign Weights to Selected Features** 🎯")
     
     # Add a simple text description at the top
@@ -392,7 +391,7 @@ elif st.session_state.step == 4:
                 f"Weight for **{feature}**",
                 min_value=0.0,
                 max_value=1.0,
-                value=0.0,  # Default value set to zero
+                value=0.0,  # Default initial value of zero
                 step=0.05,  # Multiples of 0.05
                 key=f"weight_slider_{feature}"
             )
@@ -403,7 +402,7 @@ elif st.session_state.step == 4:
                 f"Weight for **{feature}**",
                 min_value=0.0,
                 max_value=1.0,
-                value=0.0,  # Default value set to zero
+                value=0.0,  # Default initial value of zero
                 step=0.05,  # Multiples of 0.05
                 format="%.2f",
                 key=f"weight_input_{feature}"
@@ -506,7 +505,7 @@ elif st.session_state.step == 4:
             # Execute selected model with loading spinner
             if st.session_state.selected_model == 'linear_regression':
                 with st.spinner("Running Linear Regression..."):
-                    run_linear_regression(X, y)  # Using entire data
+                    run_linear_regression(X, y)
             elif st.session_state.selected_model == 'random_forest':
                 # Split the data into training and testing sets
                 test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
@@ -525,10 +524,8 @@ elif st.session_state.step == 4:
     # Navigation buttons with callbacks
     col_back, col_run, col_reset = st.columns([1,1,1])
     with col_back:
-        if st.button("← Back", on_click=prev_step, key='back_step4'):
-            st.session_state.selected_model = None
+        st.button("← Back", on_click=prev_step, key='back_step4')
     with col_run:
         pass  # Placeholder for alignment
     with col_reset:
-        if st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app'):
-            pass
+        st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app')
