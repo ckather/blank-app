@@ -213,7 +213,56 @@ if uploaded_file is not None:
     st.dataframe(df.head())
     
     # Step: Ask user which model to run
-    st.subheader("Step 2: Choose a Model")
+    # Step: Ask user which model to run
+st.subheader("Step 2: Choose a Model")
+
+# Model descriptions
+st.write("""
+### Linear Regression:
+- Choose this model if you're working with between 10-50 lines of data.
+""")
+st.write("""
+### Random Forest:
+- Choose this model if you're working with >50 lines of data and want to leverage predictive power.
+""")
+st.write("""
+### Weighted Scoring Model:
+- Choose this model if you're working with any amount of data and are looking for analysis, not prediction.
+""")
+
+# Track user selection
+selected_model = st.session_state['selected_model']
+
+if selected_model is None:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button('Run Linear Regression'):
+            st.session_state['selected_model'] = 'linear_regression'
+    with col2:
+        if st.button('Run Random Forest'):
+            st.session_state['selected_model'] = 'random_forest'
+    with col3:
+        if st.button('Run Weighted Scoring Model'):
+            st.session_state['selected_model'] = 'weighted_scoring_model'
+
+# When the user selects a model, display only the selected one
+if st.session_state['selected_model'] == 'linear_regression':
+    st.info("Running Linear Regression...")
+    run_linear_regression(df, numeric_columns)
+elif st.session_state['selected_model'] == 'random_forest':
+    st.info("Running Random Forest...")
+    run_random_forest(df, numeric_columns)
+elif st.session_state['selected_model'] == 'weighted_scoring_model':
+    st.info("Running Weighted Scoring Model...")
+    run_weighted_scoring_model(df)
+
+# Add a "Run a New Model" button after the model has run
+if st.session_state['selected_model'] is not None:
+    st.markdown("<hr>", unsafe_allow_html=True)
+    if st.button("Run a New Model 🔄"):
+        st.session_state['selected_model'] = None  # Reset the session state
+        st.experimental_set_query_params()  # Clear content from previous run
+
     
     # Track user selection
     selected_model = st.session_state['selected_model']
