@@ -9,6 +9,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
+# Function to clear Streamlit cache
+def clear_cache():
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
+# Clear cache at the beginning of each run
+clear_cache()
+
 # Set the page configuration
 st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="wide")
 
@@ -45,6 +53,7 @@ def reset_app():
     st.session_state.target_column = 'Account Adoption Rank Order'
     st.session_state.selected_features = []
     st.session_state.selected_model = None
+    clear_cache()
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -103,75 +112,27 @@ def generate_account_adoption_rank(df):
     
     return df
 
-# Model functions
+# Model functions with caching
+@st.cache_resource
 def run_linear_regression(X, y):
     model = LinearRegression()
     model.fit(X, y)
     predictions = model.predict(X)
     mse = mean_squared_error(y, predictions)
-    
-    st.subheader("📈 Linear Regression Results")
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-    
-    # Plot Actual vs Predicted using Plotly for interactivity
-    fig = px.scatter(
-        x=y,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs Predicted'
-    )
-    fig.add_shape(
-        type="line",
-        x0=y.min(),
-        y0=y.min(),
-        x1=y.max(),
-        y1=y.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig)
+    return predictions, mse
 
+@st.cache_resource
 def run_random_forest(X_train, X_test, y_train, y_test):
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
-    
-    st.subheader("🌲 Random Forest Results")
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-    
-    # Plot Feature Importance
     importances = model.feature_importances_
-    feature_names = X_train.columns
-    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax)
-    ax.set_title("Feature Importances")
-    st.pyplot(fig)
-    
-    # Plot Actual vs Predicted using Plotly
-    fig2 = px.scatter(
-        x=y_test,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs Predicted'
-    )
-    fig2.add_shape(
-        type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig2)
+    feature_importances = pd.Series(importances, index=X_train.columns).sort_values(ascending=False)
+    return predictions, mse, feature_importances
 
-def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
-    st.subheader("⚖️ Weighted Scoring Model Results")
-    
-    # Encode categorical features
-    df_encoded = encode_categorical_features(df.copy(), mappings)
-    
+@st.cache_resource
+def run_weighted_scoring_model(df_encoded, normalized_weights, target_column):
     # Calculate weighted score
     df_encoded['Weighted_Score'] = 0
     for feature, weight in normalized_weights.items():
@@ -185,22 +146,8 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     
     # Correlation with target
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
-    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
     
-    # Display top accounts
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
-    st.dataframe(top_accounts)
-    
-    # Plot Weighted Score vs Actual
-    fig = px.scatter(
-        df_encoded,
-        x='Weighted_Score',
-        y=target_column,
-        labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
-        title='Weighted Score vs Actual'
-    )
-    st.plotly_chart(fig)
+    return df_encoded, correlation
 
 # Sidebar rendering
 def render_sidebar():
@@ -460,7 +407,27 @@ elif st.session_state.step == 4:
             # Execute selected model with loading spinner
             if st.session_state.selected_model == 'linear_regression':
                 with st.spinner("Running Linear Regression..."):
-                    run_linear_regression(X, y)
+                    predictions, mse = run_linear_regression(X, y)
+                st.subheader("📈 Linear Regression Results")
+                st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+                
+                # Plot Actual vs Predicted
+                fig = px.scatter(
+                    x=y,
+                    y=predictions,
+                    labels={'x': 'Actual', 'y': 'Predicted'},
+                    title='Actual vs Predicted'
+                )
+                fig.add_shape(
+                    type="line",
+                    x0=y.min(),
+                    y0=y.min(),
+                    x1=y.max(),
+                    y1=y.max(),
+                    line=dict(color="Red", dash="dash")
+                )
+                st.plotly_chart(fig)
+            
             elif st.session_state.selected_model == 'random_forest':
                 # Split the data into training and testing sets
                 test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider_rf')
@@ -469,10 +436,57 @@ elif st.session_state.step == 4:
                 st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
                 
                 with st.spinner("Training Random Forest model..."):
-                    run_random_forest(X_train, X_test, y_train, y_test)
+                    predictions, mse, feature_importances = run_random_forest(X_train, X_test, y_train, y_test)
+                st.subheader("🌲 Random Forest Results")
+                st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+                
+                # Plot Feature Importance
+                fig, ax = plt.subplots(figsize=(10, 6))
+                feature_importances.plot(kind='bar', ax=ax)
+                ax.set_title("Feature Importances")
+                st.pyplot(fig)
+                
+                # Plot Actual vs Predicted
+                fig2 = px.scatter(
+                    x=y_test,
+                    y=predictions,
+                    labels={'x': 'Actual', 'y': 'Predicted'},
+                    title='Actual vs Predicted'
+                )
+                fig2.add_shape(
+                    type="line",
+                    x0=y_test.min(),
+                    y0=y_test.min(),
+                    x1=y_test.max(),
+                    y1=y_test.max(),
+                    line=dict(color="Red", dash="dash")
+                )
+                st.plotly_chart(fig2)
+            
             elif st.session_state.selected_model == 'weighted_scoring_model':
+                # Encode categorical features
+                df_encoded = encode_categorical_features(df.copy(), categorical_mappings)
+                
                 with st.spinner("Calculating Weighted Scoring Model..."):
-                    run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+                    df_encoded, correlation = run_weighted_scoring_model(df_encoded, normalized_weights, target_column)
+                
+                st.subheader("⚖️ Weighted Scoring Model Results")
+                st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
+                
+                # Display top accounts
+                top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(10)
+                st.write("**Top 10 Accounts Based on Weighted Score:**")
+                st.dataframe(top_accounts)
+                
+                # Plot Weighted Score vs Actual
+                fig = px.scatter(
+                    df_encoded,
+                    x='Weighted_Score',
+                    y=target_column,
+                    labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
+                    title='Weighted Score vs Actual'
+                )
+                st.plotly_chart(fig)
     
     st.markdown("---")
     
