@@ -5,8 +5,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
+import statsmodels.api as sm
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
@@ -44,7 +44,9 @@ def reset_app():
 
 # Function to advance to the next step
 def next_step():
-    if st.session_state.step < 4:
+    if st.session_state.step == 1 and st.session_state.df is None:
+        st.warning("⚠️ Please upload a CSV file before proceeding.")
+    elif st.session_state.step < 4:
         st.session_state.step += 1
 
 # Function to go back to the previous step
@@ -118,39 +120,67 @@ def generate_account_adoption_rank(df):
 
     return df
 
-def run_linear_regression(X_train, X_test, y_train, y_test):
+def run_linear_regression(X, y):
     """
-    Trains and evaluates a Linear Regression model.
+    Trains and evaluates a Linear Regression model using statsmodels.
     """
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
-
     st.subheader("📈 Linear Regression Results")
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+    X = sm.add_constant(X)  # Add constant term for intercept
+    model = sm.OLS(y, X).fit()
+    predictions = model.predict(X)
 
-    # Plot Actual vs Predicted using Plotly for interactivity
+    st.write("**Regression Summary:**")
+    st.text(model.summary())
+
+    # Extract R-squared
+    r_squared = model.rsquared
+
+    # Create DataFrame for coefficients
+    coef_df = pd.DataFrame({
+        'Variable': model.params.index,
+        'Coefficient': model.params.values,
+        'Std. Error': model.bse.values,
+        'P-Value': model.pvalues.values
+    })
+
+    st.write("**Coefficients:**")
+    st.dataframe(coef_df)
+
+    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
+
+    # Plot Actual vs Predicted
     fig = px.scatter(
-        x=y_test,
+        x=y,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
         title='Actual vs Predicted'
     )
     fig.add_shape(
         type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
+        x0=y.min(),
+        y0=y.min(),
+        x1=y.max(),
+        y1=y.max(),
         line=dict(color="Red", dash="dash")
     )
     st.plotly_chart(fig)
 
-def run_random_forest(X_train, X_test, y_train, y_test):
+def run_random_forest(X, y, normalized_weights):
     """
     Trains and evaluates a Random Forest Regressor.
     """
+    # Apply feature weights before training
+    if normalized_weights:
+        for feature, weight in normalized_weights.items():
+            if feature in X.columns:
+                X[feature] *= weight
+
+    # Split the data into training and testing sets
+    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+
+    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
@@ -169,7 +199,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     ax.set_title("Feature Importances")
     st.pyplot(fig)
 
-    # Plot Actual vs Predicted using Plotly
+    # Plot Actual vs Predicted
     fig2 = px.scatter(
         x=y_test,
         y=predictions,
@@ -215,7 +245,7 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
     st.dataframe(top_accounts)
 
-    # Plot Weighted Score vs Target using Plotly for interactivity
+    # Plot Weighted Score vs Target
     fig = px.scatter(
         df_encoded,
         x='Weighted_Score',
@@ -250,25 +280,13 @@ def run_selected_model(normalized_weights):
         else:
             X[col].fillna(X[col].mean(), inplace=True)
 
-    if selected_model == 'random_forest' and normalized_weights:
-        # Apply feature weights before training
-        for feature, weight in normalized_weights.items():
-            if feature in X.columns:
-                X[feature] *= weight
-
-    # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
-
     # Execute selected model with loading spinner
     if selected_model == 'linear_regression':
         with st.spinner("Training Linear Regression model..."):
-            run_linear_regression(X_train, X_test, y_train, y_test)
+            run_linear_regression(X, y)
     elif selected_model == 'random_forest':
         with st.spinner("Training Random Forest model..."):
-            run_random_forest(X_train, X_test, y_train, y_test)
+            run_random_forest(X, y, normalized_weights)
     elif selected_model == 'weighted_scoring_model':
         with st.spinner("Calculating Weighted Scoring Model..."):
             run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
@@ -291,9 +309,9 @@ def render_sidebar():
     for i, title in enumerate(step_titles, 1):
         if i == current_step:
             # Highlight current step
-            st.sidebar.markdown(f"### **Step {i}: {title}** 🔵")
+            st.sidebar.markdown(f"### **Step {i}: {title}** ✅")
         elif i < current_step:
-            # Completed steps with checkmark
+            # Completed steps with green checkmark
             st.sidebar.markdown(f"### ✅ Step {i}: {title}")
         else:
             # Upcoming steps
@@ -517,12 +535,34 @@ elif st.session_state.step == 4:
             st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app_bottom')
 
 # Navigation buttons at the bottom with unique keys and on_click callbacks
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 col1, col2 = st.columns([1, 1])
 with col1:
     if st.session_state.step > 1:
+        st.markdown(
+            f"""
+            <style>
+            .button-back {{
+                display: flex;
+                justify-content: center;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         st.button("← Back", on_click=prev_step, key='back_bottom')
 with col2:
     if st.session_state.step < 4:
+        st.markdown(
+            f"""
+            <style>
+            .button-next {{
+                display: flex;
+                justify-content: center;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
         st.button("Next →", on_click=next_step, key='next_bottom')
 
