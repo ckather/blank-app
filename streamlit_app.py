@@ -125,7 +125,17 @@ def run_linear_regression(X, y):
     Trains and evaluates a Linear Regression model using statsmodels.
     """
     st.subheader("📈 Linear Regression Results")
-    X = sm.add_constant(X)  # Add constant term for intercept
+
+    # Convert data to numeric, drop rows with NaN values
+    X = X.apply(pd.to_numeric, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    data = pd.concat([X, y], axis=1).dropna()
+    X = data.drop(y.name, axis=1)
+    y = data[y.name]
+
+    # Add constant term for intercept
+    X = sm.add_constant(X)
+
     model = sm.OLS(y, X).fit()
     predictions = model.predict(X)
 
@@ -275,6 +285,7 @@ def run_selected_model(normalized_weights):
 
     # Handle missing values
     for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
         if X[col].dtype == 'object':
             X[col].fillna(X[col].mode()[0], inplace=True)
         else:
@@ -309,7 +320,7 @@ def render_sidebar():
     for i, title in enumerate(step_titles, 1):
         if i == current_step:
             # Highlight current step
-            st.sidebar.markdown(f"### **Step {i}: {title}** ✅")
+            st.sidebar.markdown(f"### ✅ **Step {i}: {title}**")
         elif i < current_step:
             # Completed steps with green checkmark
             st.sidebar.markdown(f"### ✅ Step {i}: {title}")
@@ -565,4 +576,3 @@ with col2:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
-
