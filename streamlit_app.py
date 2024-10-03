@@ -143,12 +143,7 @@ def run_weighted_scoring_model(df_encoded, normalized_weights, target_column):
 
 # Sidebar rendering
 def render_sidebar():
-    step_titles = [
-        "Upload CSV File",
-        "Confirm Target Variable",
-        "Select Independent Variables",
-        "Assign Weights & Choose Model"
-    ]
+    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
     current_step = st.session_state.step
 
     st.sidebar.title("📖 Instructions")
@@ -289,23 +284,24 @@ elif st.session_state.step == 4:
     st.markdown("**Assign Weights to Selected Features** 🎯")
     st.write("""
         Assign how important each feature is in determining the **Account Adoption Rank Order**. 
-        The weights must add up to **10**. Use the sliders below to assign weights in multiples of **5**.
+        The weights must add up to **10**. Use the number inputs below to assign weights.
     """)
     
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
     
-    st.markdown("### 🔢 **Enter Weights for Each Feature (Multiples of 5):**")
+    st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
     
-    # Create sliders for each feature with step=5
+    # Create number inputs for each feature
     for feature in selected_features:
-        weight = st.slider(
+        weight = st.number_input(
             f"Weight for **{feature}**:",
-            min_value=0,
-            max_value=10,
-            step=5,
-            value=0,  # Default initial value of 0
-            key=f"weight_slider_{feature}"
+            min_value=0.0,
+            max_value=10.0,
+            value=0.0,
+            step=0.5,
+            format="%.1f",
+            key=f"weight_input_{feature}"
         )
         feature_weights[feature] = weight
     
@@ -317,13 +313,13 @@ elif st.session_state.step == 4:
     st.markdown("### 🎯 **Total Weight Assigned:**")
     
     if total_weight < 10:
-        status = f"❗ Total weight is **{total_weight}**, which is less than **10**."
+        status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
         color = "#FFC107"  # Yellow
     elif total_weight > 10:
-        status = f"❗ Total weight is **{total_weight}**, which is more than **10**."
+        status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
         color = "#DC3545"  # Red
     else:
-        status = f"✅ Total weight is **{total_weight}**, which meets the requirement."
+        status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
         color = "#28A745"  # Green
     
     # Display status
@@ -469,10 +465,10 @@ elif st.session_state.step == 4:
                 st.subheader("⚖️ Weighted Scoring Model Results")
                 st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
                 
-                # Allow user to select number of top accounts to display
+                # Display top accounts
                 top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
                 top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
-                st.write(f"**Top {top_n} Accounts Based on Weighted Score:**")
+                st.write("**Top Accounts Based on Weighted Score:**")
                 st.dataframe(top_accounts)
                 
                 # Plot Weighted Score vs Actual
@@ -495,3 +491,95 @@ elif st.session_state.step == 4:
         pass  # Placeholder for alignment
     with col_reset:
         st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app')
+    ```
+
+---
+
+## **Explanation of Key Components**
+
+### **1. Weight Assignment with Number Inputs in Step 4**
+
+**Implementation:**
+
+- **Number Inputs:**
+  - For each selected feature, a `number_input` widget allows the user to assign a weight between **0** and **10** in increments of **0.5**.
+  - This provides precise control over the weight values.
+
+- **Total Weight Calculation:**
+  - The app calculates the sum of all assigned weights.
+  - It then checks whether the total equals **10**.
+
+- **Validation and Normalization:**
+  - **If Total < 10:**
+    - A yellow warning box indicates that the total weight is less than **10**.
+  - **If Total > 10:**
+    - A red warning box indicates that the total weight exceeds **10**.
+  - **If Total == 10:**
+    - A green confirmation box indicates that the total weight meets the requirement.
+  - **Normalization:**
+    - If the total weight does not equal **10**, the app automatically normalizes the weights so that their sum becomes **10**.
+    - Users are informed about the normalization process through a warning message.
+
+**Code Snippet:**
+
+```python
+# Create number inputs for each feature
+for feature in selected_features:
+    weight = st.number_input(
+        f"Weight for **{feature}**:",
+        min_value=0.0,
+        max_value=10.0,
+        value=0.0,
+        step=0.5,
+        format="%.1f",
+        key=f"weight_input_{feature}"
+    )
+    feature_weights[feature] = weight
+
+# Calculate total weight
+total_weight = sum(feature_weights.values())
+
+# Display total weight with validation
+st.markdown("---")
+st.markdown("### 🎯 **Total Weight Assigned:**")
+
+if total_weight < 10:
+    status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
+    color = "#FFC107"  # Yellow
+elif total_weight > 10:
+    status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
+    color = "#DC3545"  # Red
+else:
+    status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
+    color = "#28A745"  # Green
+
+# Display status
+st.markdown(
+    f"""
+    <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+        <h3 style="color:white; text-align:center;">{status}</h3>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Progress bar
+st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+
+# Normalize weights if necessary
+if total_weight != 10:
+    st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+    if total_weight > 0:
+        normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+    else:
+        normalized_weights = feature_weights  # Avoid division by zero
+else:
+    normalized_weights = feature_weights
+
+# Display normalized weights
+st.markdown("**Normalized Weights:**")
+normalized_weights_df = pd.DataFrame({
+    'Feature': list(normalized_weights.keys()),
+    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+})
+st.dataframe(normalized_weights_df)
