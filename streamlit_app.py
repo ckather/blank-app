@@ -43,12 +43,6 @@ def reset_app():
     st.session_state.model_has_run = False
     st.experimental_rerun()
 
-# Function to reset the last page to allow running another model
-def reset_last_page():
-    st.session_state.selected_model = None
-    st.session_state.model_has_run = False
-    st.experimental_rerun()
-
 # Function to advance to the next step
 def next_step():
     if st.session_state.step == 1 and st.session_state.df is None:
@@ -147,18 +141,10 @@ def run_linear_regression(X, y):
     predictions = model.predict(X)
 
     st.write("**Regression Summary:**")
-
-    # Highlight key areas in the summary
-    summary_df = pd.read_html(model.summary().tables[1].as_html(), header=0, index_col=0)[0]
-    st.dataframe(summary_df.style.highlight_between(
-        subset=['P>|t|'],
-        left=0, right=0.05,
-        color='yellow', axis=0
-    ).format("{:.4f}"))
+    st.text(model.summary())
 
     # Extract R-squared
     r_squared = model.rsquared
-    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
 
     # Create DataFrame for coefficients
     coef_df = pd.DataFrame({
@@ -168,32 +154,10 @@ def run_linear_regression(X, y):
         'P-Value': model.pvalues.values
     })
 
-    # Highlight coefficients with p-values less than 0.05
-    coef_df['Significant'] = coef_df['P-Value'] < 0.05
-
     st.write("**Coefficients:**")
-    st.dataframe(coef_df.style.apply(
-        lambda x: ['background-color: yellow' if v else '' for v in x['Significant']], axis=1
-    ).format("{:.4f}"))
+    st.dataframe(coef_df)
 
-    # Interpretation in layman's terms
-    st.markdown("### 🔍 **Interpretation of Results:**")
-    st.markdown("""
-    - **R-squared:** Indicates that **{:.2%}** of the variability in the target variable is explained by the model.
-    - **Significant Variables:** The following variables have a statistically significant relationship with the target variable (p-value < 0.05):
-    """.format(r_squared))
-
-    significant_vars = coef_df[coef_df['P-Value'] < 0.05]['Variable'].tolist()
-    if significant_vars:
-        for var in significant_vars:
-            st.markdown(f"  - **{var}**")
-    else:
-        st.markdown("  - No variables were statistically significant.")
-
-    st.markdown("""
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase.
-    - **P-Values:** A lower p-value (< 0.05) indicates that there is strong evidence against the null hypothesis, suggesting the variable is significant.
-    """)
+    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
 
     # Plot Actual vs Predicted
     fig = px.scatter(
@@ -447,7 +411,7 @@ elif st.session_state.step == 2:
     target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
     st.session_state.target_column = target_column  # Ensure it's set
 
-    st.markdown(f"**Selected Target Variable:** `{target_column}`")
+    st.markdown(f"**Selected Target Variable:** {target_column}")
 
     # Add descriptive text guiding to next steps
     st.write("""
@@ -479,16 +443,12 @@ elif st.session_state.step == 3:
     else:
         st.warning("⚠️ Please select at least one independent variable.")
 
-
-# Continuing from the previous code...
-
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
 
-    # Moved the header to always appear at the top
     st.subheader("Step 4: Choose Model & Assign Weights")
     st.write("Select the predictive model you want to run based on your selected features.")
 
@@ -592,10 +552,10 @@ elif st.session_state.step == 4:
         # Run Model Button with unique key and on_click callback
         st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
 
-    # Display "Run Another Model" button after the model has run
-    if st.session_state.model_has_run:
-        # Added "Run Another Model" button
-        st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
+        # Display "Run a New Model" button after the model has run
+        if st.session_state.model_has_run:
+            # Display "Run a New Model" button
+            st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app_bottom')
 
 # Navigation buttons at the bottom with unique keys and on_click callbacks
 st.markdown("<br>", unsafe_allow_html=True)
