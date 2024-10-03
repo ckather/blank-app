@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
 # Set the page configuration
-st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="wide")
+st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
@@ -39,6 +39,12 @@ def reset_app():
     st.session_state.df = None
     st.session_state.target_column = 'Account Adoption Rank Order'
     st.session_state.selected_features = []
+    st.session_state.selected_model = None
+    st.session_state.model_has_run = False
+    st.experimental_rerun()
+
+# Function to reset the last page to allow running another model
+def reset_last_page():
     st.session_state.selected_model = None
     st.session_state.model_has_run = False
     st.experimental_rerun()
@@ -175,6 +181,14 @@ def run_linear_regression(X, y):
         line=dict(color="Red", dash="dash")
     )
     st.plotly_chart(fig)
+
+    # Interpretation in layman's terms
+    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown(f"""
+    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase.
+    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
 
 def run_random_forest(X, y, normalized_weights):
     """
@@ -320,6 +334,8 @@ def run_selected_model(normalized_weights):
     # After running the model, reset selected_model to allow re-selection
     st.session_state.selected_model = None
 
+# Continuing from the previous code...
+
 def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
@@ -347,7 +363,7 @@ render_sidebar()
 
 # Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
-    st.title("💊 Pathways Prediction Platform")
+    st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 1: Upload Your CSV File")
 
     # Provide the download button for the CSV template
@@ -405,6 +421,7 @@ if st.session_state.step == 1:
 
 # Step 2: Confirm Target Variable
 elif st.session_state.step == 2:
+    st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 2: Confirm Target Variable")
 
     # Display the selected target variable
@@ -421,6 +438,7 @@ elif st.session_state.step == 2:
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
+    st.title("💊 Behavior Prediction Platform 💊")
     df = st.session_state.df
     target_column = st.session_state.target_column
     st.subheader("Step 3: Select Independent Variables")
@@ -445,10 +463,12 @@ elif st.session_state.step == 3:
 
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
+    st.title("💊 Behavior Prediction Platform 💊")
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
 
+    # Moved the header to always appear at the top
     st.subheader("Step 4: Choose Model & Assign Weights")
     st.write("Select the predictive model you want to run based on your selected features.")
 
@@ -552,10 +572,10 @@ elif st.session_state.step == 4:
         # Run Model Button with unique key and on_click callback
         st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
 
-        # Display "Run a New Model" button after the model has run
-        if st.session_state.model_has_run:
-            # Display "Run a New Model" button
-            st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app_bottom')
+    # Display "Run Another Model" button after the model has run
+    if st.session_state.model_has_run:
+        # Added "Run Another Model" button
+        st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
 
 # Navigation buttons at the bottom with unique keys and on_click callbacks
 st.markdown("<br>", unsafe_allow_html=True)
