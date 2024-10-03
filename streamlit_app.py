@@ -9,6 +9,20 @@ from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
+# Function to clear Streamlit cache
+def clear_cache():
+    try:
+        st.cache_data.clear()
+    except:
+        pass
+    try:
+        st.cache_resource.clear()
+    except:
+        pass
+
+# Clear cache at the beginning
+clear_cache()
+
 # Set the page configuration
 st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="wide")
 
@@ -38,13 +52,14 @@ def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
 
-# Function to reset the app to Step 1
+# Function to reset the app to Step 1 and clear cache
 def reset_app():
     st.session_state.step = 1
     st.session_state.df = None
     st.session_state.target_column = 'Account Adoption Rank Order'
     st.session_state.selected_features = []
     st.session_state.selected_model = None
+    clear_cache()
     st.experimental_rerun()
 
 # Define mappings for categorical features
@@ -140,7 +155,7 @@ def run_weighted_scoring_model(df_encoded, normalized_weights, target_column):
 
 # Sidebar rendering
 def render_sidebar():
-    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Choose Model & Run"]
+    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
     current_step = st.session_state.step
     
     st.sidebar.title("📖 Instructions")
@@ -228,7 +243,7 @@ elif st.session_state.step == 2:
     
     # Descriptive text
     st.write("""
-        In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
+        In the next step, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
@@ -269,14 +284,88 @@ elif st.session_state.step == 3:
             else:
                 st.warning("⚠️ Please select at least one independent variable.")
 
-# Step 4: Choose Model & Run
+# Step 4: Assign Weights & Choose Model
 elif st.session_state.step == 4:
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
     
-    st.subheader("Step 4: Choose Model & Run")
-    st.write("Select the predictive model you want to run based on your selected features.")
+    st.subheader("Step 4: Assign Weights & Choose Model")
+    st.write("Assign weights to your selected features and choose a predictive model.")
+    
+    # Instructions
+    st.markdown("**Assign Weights to Selected Features** 🎯")
+    st.write("""
+        Assign how important each feature is in determining the **Account Adoption Rank Order**. 
+        The weights must add up to **10**. Use the sliders below to assign weights in multiples of **5**.
+    """)
+    
+    # Initialize a dictionary to store user-assigned weights
+    feature_weights = {}
+    
+    st.markdown("### 🔢 **Enter Weights for Each Feature (Multiples of 5):**")
+    
+    # Create sliders for each feature with step=5
+    for feature in selected_features:
+        weight = st.slider(
+            f"Weight for **{feature}**:",
+            min_value=0,
+            max_value=10,
+            step=5,
+            value=0,  # Default initial value of 0
+            key=f"weight_slider_{feature}"
+        )
+        feature_weights[feature] = weight
+    
+    # Calculate total weight
+    total_weight = sum(feature_weights.values())
+    
+    # Display total weight with validation
+    st.markdown("---")
+    st.markdown("### 🎯 **Total Weight Assigned:**")
+    
+    if total_weight < 10:
+        status = f"❗ Total weight is **{total_weight}**, which is less than **10**."
+        color = "#FFC107"  # Yellow
+    elif total_weight > 10:
+        status = f"❗ Total weight is **{total_weight}**, which is more than **10**."
+        color = "#DC3545"  # Red
+    else:
+        status = f"✅ Total weight is **{total_weight}**, which meets the requirement."
+        color = "#28A745"  # Green
+    
+    # Display status
+    st.markdown(
+        f"""
+        <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+            <h3 style="color:white; text-align:center;">{status}</h3>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Progress bar
+    st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+    
+    # Normalize weights if necessary
+    if total_weight != 10:
+        st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+        if total_weight > 0:
+            normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+        else:
+            normalized_weights = feature_weights  # Avoid division by zero
+    else:
+        normalized_weights = feature_weights
+    
+    # Display normalized weights
+    st.markdown("**Normalized Weights:**")
+    normalized_weights_df = pd.DataFrame({
+        'Feature': list(normalized_weights.keys()),
+        'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+    })
+    st.dataframe(normalized_weights_df)
+    
+    st.markdown("---")
     
     # Model Selection Buttons
     col1, col2, col3 = st.columns(3)
@@ -288,18 +377,21 @@ elif st.session_state.step == 4:
         if st.button("Random Forest", key='model_random_forest'):
             st.session_state.selected_model = 'random_forest'
     with col3:
-        if st.button("Run a Model", key='run_model'):
-            st.session_state.selected_model = 'run_model_button'
+        if st.button("Weighted Scoring Model", key='model_weighted_scoring'):
+            st.session_state.selected_model = 'weighted_scoring_model'
     
     # Show description based on selected model
-    if st.session_state.selected_model == 'linear_regression':
-        st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
-    elif st.session_state.selected_model == 'random_forest':
-        st.info("**Random Forest:** Ideal for handling complex datasets with non-linear relationships and interactions.")
+    if st.session_state.selected_model:
+        if st.session_state.selected_model == 'linear_regression':
+            st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
+        elif st.session_state.selected_model == 'random_forest':
+            st.info("**Random Forest:** Ideal for handling complex datasets with non-linear relationships and interactions.")
+        elif st.session_state.selected_model == 'weighted_scoring_model':
+            st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
     
-    # Run Model
-    if st.session_state.selected_model in ['linear_regression', 'random_forest']:
-        if st.button("Execute Model", key='execute_model'):
+    # Run Model Button
+    if st.session_state.selected_model:
+        if st.button("Run Model", key='run_model'):
             # Preprocess data
             X = df[selected_features]
             y = df[target_column]
@@ -374,6 +466,31 @@ elif st.session_state.step == 4:
                     line=dict(color="Red", dash="dash")
                 )
                 st.plotly_chart(fig2)
+            
+            elif st.session_state.selected_model == 'weighted_scoring_model':
+                # Encode categorical features
+                df_encoded = encode_categorical_features(df.copy(), categorical_mappings)
+                
+                with st.spinner("Calculating Weighted Scoring Model..."):
+                    df_encoded, correlation = run_weighted_scoring_model(df_encoded, normalized_weights, target_column)
+                
+                st.subheader("⚖️ Weighted Scoring Model Results")
+                st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
+                
+                # Display top accounts
+                top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(10)
+                st.write("**Top 10 Accounts Based on Weighted Score:**")
+                st.dataframe(top_accounts)
+                
+                # Plot Weighted Score vs Actual
+                fig = px.scatter(
+                    df_encoded,
+                    x='Weighted_Score',
+                    y=target_column,
+                    labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
+                    title='Weighted Score vs Actual'
+                )
+                st.plotly_chart(fig)
     
     st.markdown("---")
     
