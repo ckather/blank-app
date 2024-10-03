@@ -113,7 +113,7 @@ def run_linear_regression(X, y):
     st.subheader("📈 Linear Regression Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
-    # Plot Actual vs Predicted
+    # Plot Actual vs Predicted using Plotly for interactivity
     fig = px.scatter(
         x=y,
         y=predictions,
@@ -149,7 +149,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     ax.set_title("Feature Importances")
     st.pyplot(fig)
     
-    # Plot Actual vs Predicted
+    # Plot Actual vs Predicted using Plotly
     fig2 = px.scatter(
         x=y_test,
         y=predictions,
@@ -346,23 +346,23 @@ elif st.session_state.step == 4:
     st.markdown("**Assign Weights to Selected Features** 🎯")
     st.write("""
         Assign how important each feature is in determining the **Account Adoption Rank Order**. 
-        The weights must add up to **10**. You can assign the same weight to multiple features if they are equally important.
+        The weights must add up to **10**. Use the sliders below to assign weights in multiples of **5**.
     """)
     
     # Initialize a dictionary to store user-assigned weights
     feature_weights = {}
     
-    st.markdown("### 🔢 **Enter Weights for Each Feature (1-10):**")
+    st.markdown("### 🔢 **Enter Weights for Each Feature (Multiples of 5):**")
     
-    # Create input boxes for each feature
+    # Create sliders for each feature with step=5
     for feature in selected_features:
-        weight = st.number_input(
+        weight = st.slider(
             f"Weight for **{feature}**:",
-            min_value=1,
+            min_value=0,
             max_value=10,
-            value=1,  # Default initial value of 1
-            step=1,
-            key=f"weight_input_{feature}"
+            step=5,
+            value=0,  # Default initial value of 0
+            key=f"weight_slider_{feature}"
         )
         feature_weights[feature] = weight
     
@@ -400,7 +400,7 @@ elif st.session_state.step == 4:
     if total_weight != 10:
         st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
         if total_weight > 0:
-            normalized_weights = {feature: weight / total_weight * 10 for feature, weight in feature_weights.items()}
+            normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
         else:
             normalized_weights = feature_weights  # Avoid division by zero
     else:
