@@ -1,6 +1,5 @@
 # app.py
 
-# Import necessary libraries
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -54,12 +53,8 @@ categorical_mappings = {
     'analog_3_adopt': {'low': 1, 'medium': 2, 'high': 3}
 }
 
-# Define helper functions
-
+# Helper function to encode categorical features
 def encode_categorical_features(df, mappings):
-    """
-    Encodes categorical features based on provided mappings.
-    """
     for feature, mapping in mappings.items():
         if feature in df.columns:
             df[feature] = df[feature].map(mapping)
@@ -68,12 +63,8 @@ def encode_categorical_features(df, mappings):
                 df[feature].fillna(df[feature].mode()[0], inplace=True)
     return df
 
+# Helper function to generate 'Account Adoption Rank Order'
 def generate_account_adoption_rank(df):
-    """
-    Generates the 'Account Adoption Rank Order' based on total sales across different periods.
-    If 'Total_2022_and_2023' is missing, it calculates it using available sales columns.
-    """
-    # Define the columns to sum for ranking (adjust these columns based on your data)
     sales_columns = [
         'ProdA_sales_first12',
         'ProdA_sales_2022',
@@ -83,7 +74,6 @@ def generate_account_adoption_rank(df):
         'competition_sales_2023'
     ]
     
-    # Check if 'Total_2022_and_2023' exists; if not, compute it
     if 'Total_2022_and_2023' not in df.columns:
         required_for_total = ['ProdA_sales_2022', 'ProdA_sales_2023', 'competition_sales_2022', 'competition_sales_2023']
         missing_total_cols = [col for col in required_for_total if col not in df.columns]
@@ -113,10 +103,8 @@ def generate_account_adoption_rank(df):
     
     return df
 
+# Model functions
 def run_linear_regression(X, y):
-    """
-    Trains and evaluates a Linear Regression model using the entire dataset.
-    """
     model = LinearRegression()
     model.fit(X, y)
     predictions = model.predict(X)
@@ -125,7 +113,7 @@ def run_linear_regression(X, y):
     st.subheader("📈 Linear Regression Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
     
-    # Plot Actual vs Predicted using Plotly for interactivity
+    # Plot Actual vs Predicted
     fig = px.scatter(
         x=y,
         y=predictions,
@@ -143,9 +131,6 @@ def run_linear_regression(X, y):
     st.plotly_chart(fig)
 
 def run_random_forest(X_train, X_test, y_train, y_test):
-    """
-    Trains and evaluates a Random Forest Regressor.
-    """
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
     predictions = model.predict(X_test)
@@ -164,7 +149,7 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     ax.set_title("Feature Importances")
     st.pyplot(fig)
     
-    # Plot Actual vs Predicted using Plotly
+    # Plot Actual vs Predicted
     fig2 = px.scatter(
         x=y_test,
         y=predictions,
@@ -182,15 +167,12 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     st.plotly_chart(fig2)
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
-    """
-    Calculates and evaluates a Weighted Scoring Model based on selected features and their normalized weights.
-    """
     st.subheader("⚖️ Weighted Scoring Model Results")
     
     # Encode categorical features
     df_encoded = encode_categorical_features(df.copy(), mappings)
     
-    # Calculate weighted score based on normalized weights
+    # Calculate weighted score
     df_encoded['Weighted_Score'] = 0
     for feature, weight in normalized_weights.items():
         if feature in df_encoded.columns:
@@ -205,12 +187,12 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
     st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
     
-    # Display top accounts based on score
+    # Display top accounts
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
     st.dataframe(top_accounts)
     
-    # Plot Weighted Score vs Target using Plotly for interactivity
+    # Plot Weighted Score vs Actual
     fig = px.scatter(
         df_encoded,
         x='Weighted_Score',
@@ -220,10 +202,8 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     )
     st.plotly_chart(fig)
 
+# Sidebar rendering
 def render_sidebar():
-    """
-    Renders the instructions sidebar with step highlighting and check marks.
-    """
     step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
     current_step = st.session_state.step
     
@@ -231,16 +211,13 @@ def render_sidebar():
     
     for i, title in enumerate(step_titles, 1):
         if i < current_step:
-            # Completed steps with check marks
             st.sidebar.markdown(f"### ✅ Step {i}: {title}")
         elif i == current_step:
-            # Current step highlighted
             st.sidebar.markdown(f"### **🔵 Step {i}: {title}**")
         else:
-            # Upcoming steps without check marks
             st.sidebar.markdown(f"### Step {i}: {title}")
 
-# Render the sidebar with step highlighting and check marks
+# Render the sidebar
 render_sidebar()
 
 # Step 1: Upload CSV and Download Template
@@ -248,7 +225,7 @@ if st.session_state.step == 1:
     st.title("💊 Pathways Prediction Platform")
     st.subheader("Step 1: Upload Your CSV File")
     
-    # Provide the download button for the CSV template
+    # Download button for CSV template
     st.download_button(
         label="Need a template? Download the CSV Here 📄",
         data=pd.DataFrame({
@@ -279,7 +256,6 @@ if st.session_state.step == 1:
         mime='text/csv'
     )
     
-    # Add some space
     st.markdown("<br>", unsafe_allow_html=True)
     
     # File uploader
@@ -293,13 +269,13 @@ if st.session_state.step == 1:
             df = pd.read_csv(uploaded_file)
             st.session_state.df = df  # Store in session state
             
-            # Check and generate 'Account Adoption Rank Order'
+            # Generate 'Account Adoption Rank Order'
             df = generate_account_adoption_rank(df)
             st.session_state.df = df  # Update in session state
             
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
             
-            # Display Next button with callback
+            # Next button
             st.button("Next →", on_click=next_step, key='next_step1')
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
@@ -314,13 +290,13 @@ elif st.session_state.step == 2:
     
     st.markdown(f"**Selected Target Variable:** `{target_column}`")
     
-    # Add descriptive text guiding to next steps
+    # Descriptive text
     st.write("""
         In the next step, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
-    # Navigation buttons with callbacks
+    # Navigation buttons
     col1, col2 = st.columns([1,1])
     with col1:
         st.button("← Back", on_click=prev_step, key='back_step2')
@@ -333,11 +309,11 @@ elif st.session_state.step == 3:
     target_column = st.session_state.target_column
     st.subheader("Step 3: Select Independent Variables")
     
-    # Exclude target and identifier columns from features
+    # Exclude target and identifier columns
     identifier_columns = ['acct_numb', 'acct_name']
     possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
     
-    # Multiselect for feature selection with a unique key
+    # Feature selection
     selected_features = st.multiselect(
         "Choose your independent variables (features):",
         options=possible_features,
@@ -346,7 +322,7 @@ elif st.session_state.step == 3:
         key='feature_selection'
     )
     
-    # Navigation buttons with callbacks
+    # Navigation buttons
     col1, col2 = st.columns([1,1])
     with col1:
         st.button("← Back", on_click=prev_step, key='back_step3')
@@ -366,10 +342,8 @@ elif st.session_state.step == 4:
     st.subheader("Step 4: Assign Weights & Choose Model")
     st.write("Select the predictive model you want to run based on your selected features.")
     
-    # Define feature weights for Weighted Scoring Model
+    # Instructions
     st.markdown("**Assign Weights to Selected Features** 🎯")
-    
-    # Add a simple text description at the top
     st.write("""
         Assign how important each feature is in determining the **Account Adoption Rank Order**. 
         The weights must add up to **10**. You can assign the same weight to multiple features if they are equally important.
@@ -380,6 +354,7 @@ elif st.session_state.step == 4:
     
     st.markdown("### 🔢 **Enter Weights for Each Feature (1-10):**")
     
+    # Create input boxes for each feature
     for feature in selected_features:
         weight = st.number_input(
             f"Weight for **{feature}**:",
@@ -394,11 +369,10 @@ elif st.session_state.step == 4:
     # Calculate total weight
     total_weight = sum(feature_weights.values())
     
-    # Display the total weight with validation
+    # Display total weight with validation
     st.markdown("---")
     st.markdown("### 🎯 **Total Weight Assigned:**")
     
-    # Determine status based on total weight
     if total_weight < 10:
         status = f"❗ Total weight is **{total_weight}**, which is less than **10**."
         color = "#FFC107"  # Yellow
@@ -409,7 +383,7 @@ elif st.session_state.step == 4:
         status = f"✅ Total weight is **{total_weight}**, which meets the requirement."
         color = "#28A745"  # Green
     
-    # Display status with colored background
+    # Display status
     st.markdown(
         f"""
         <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
@@ -419,13 +393,12 @@ elif st.session_state.step == 4:
         unsafe_allow_html=True
     )
     
-    # Display a progress bar
+    # Progress bar
     st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
     
-    # Normalize weights if they do not sum to 10
+    # Normalize weights if necessary
     if total_weight != 10:
         st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
-        # Normalize weights
         if total_weight > 0:
             normalized_weights = {feature: weight / total_weight * 10 for feature, weight in feature_weights.items()}
         else:
@@ -433,7 +406,7 @@ elif st.session_state.step == 4:
     else:
         normalized_weights = feature_weights
     
-    # Display normalized weights in a dataframe
+    # Display normalized weights
     st.markdown("**Normalized Weights:**")
     normalized_weights_df = pd.DataFrame({
         'Feature': list(normalized_weights.keys()),
@@ -443,7 +416,7 @@ elif st.session_state.step == 4:
     
     st.markdown("---")
     
-    # Model Selection Buttons with unique keys
+    # Model Selection Buttons
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -456,7 +429,7 @@ elif st.session_state.step == 4:
         if st.button("Weighted Scoring Model", key='model_weighted_scoring'):
             st.session_state.selected_model = 'weighted_scoring_model'
     
-    # Show description if model is selected
+    # Show description based on selected model
     if st.session_state.selected_model:
         if st.session_state.selected_model == 'linear_regression':
             st.info("**Linear Regression:** Choose this model if you're working with between 10-50 lines of data.")
@@ -465,7 +438,7 @@ elif st.session_state.step == 4:
         elif st.session_state.selected_model == 'weighted_scoring_model':
             st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
     
-    # Run Model Button with a unique key
+    # Run Model Button
     if st.session_state.selected_model:
         if st.button("Run Model", key='run_model'):
             # Preprocess data
@@ -503,7 +476,7 @@ elif st.session_state.step == 4:
     
     st.markdown("---")
     
-    # Navigation buttons with callbacks
+    # Navigation buttons
     col_back, col_run, col_reset = st.columns([1,1,1])
     with col_back:
         st.button("← Back", on_click=prev_step, key='back_step4')
