@@ -98,18 +98,6 @@ def generate_account_adoption_rank(df):
             st.stop()
         df['Total_2022_and_2023'] = df['ProdA_sales_2022'] + df['ProdA_sales_2023'] + df['competition_sales_2022'] + df['competition_sales_2023']
         st.info("'Total_2022_and_2023' column was missing and has been computed automatically.")
-    else:
-        st.info("'Total_2022_and_2023' column found in the uploaded file.")
-    
-    # Add 'Total_2022_and_2023' to sales_columns if not already present
-    if 'Total_2022_and_2023' not in sales_columns:
-        sales_columns.append('Total_2022_and_2023')
-    
-    # Check if all required sales columns are present
-    missing_columns = [col for col in sales_columns if col not in df.columns]
-    if missing_columns:
-        st.error(f"❌ The following required columns are missing to generate 'Account Adoption Rank Order': {', '.join(missing_columns)}")
-        st.stop()
     
     # Calculate total sales
     df['Total_Sales'] = df[sales_columns].sum(axis=1)
@@ -155,11 +143,16 @@ def run_weighted_scoring_model(df_encoded, normalized_weights, target_column):
 
 # Sidebar rendering
 def render_sidebar():
-    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Assign Weights & Choose Model"]
+    step_titles = [
+        "Upload CSV File",
+        "Confirm Target Variable",
+        "Select Independent Variables",
+        "Assign Weights & Choose Model"
+    ]
     current_step = st.session_state.step
-    
+
     st.sidebar.title("📖 Instructions")
-    
+
     for i, title in enumerate(step_titles, 1):
         if i < current_step:
             st.sidebar.markdown(f"### ✅ Step {i}: {title}")
@@ -191,7 +184,6 @@ if st.session_state.step == 1:
             'competition_sales_2022': [10000, 11000, 10500],
             'competition_units_2022': [100, 110, 105],
             'ProdA_sales_2023': [30000, 35000, 32000],
-            # 'Total_2022_and_2023' is intentionally omitted
             'ProdA_units_2023': [300, 350, 320],
             'competition_sales_2023': [15000, 16000, 15500],
             'competition_units_2023': [150, 160, 155],
@@ -243,7 +235,7 @@ elif st.session_state.step == 2:
     
     # Descriptive text
     st.write("""
-        In the next step, you will select the independent variables that will be used to calculate the **Account Adoption Rank Order**.
+        In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
     
@@ -291,7 +283,7 @@ elif st.session_state.step == 4:
     selected_features = st.session_state.selected_features
     
     st.subheader("Step 4: Assign Weights & Choose Model")
-    st.write("Assign weights to your selected features and choose a predictive model.")
+    st.write("Select the predictive model you want to run based on your selected features.")
     
     # Instructions
     st.markdown("**Assign Weights to Selected Features** 🎯")
@@ -477,9 +469,10 @@ elif st.session_state.step == 4:
                 st.subheader("⚖️ Weighted Scoring Model Results")
                 st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
                 
-                # Display top accounts
-                top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(10)
-                st.write("**Top 10 Accounts Based on Weighted Score:**")
+                # Allow user to select number of top accounts to display
+                top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
+                top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+                st.write(f"**Top {top_n} Accounts Based on Weighted Score:**")
                 st.dataframe(top_accounts)
                 
                 # Plot Weighted Score vs Actual
