@@ -235,7 +235,7 @@ def run_selected_model(normalized_weights):
     selected_model = st.session_state.selected_model
 
     # Preprocess data
-    X = df[selected_features]
+    X = df[selected_features].copy()
     y = df[target_column]
 
     # Handle categorical variables using one-hot encoding
@@ -249,6 +249,12 @@ def run_selected_model(normalized_weights):
             X[col].fillna(X[col].mode()[0], inplace=True)
         else:
             X[col].fillna(X[col].mean(), inplace=True)
+
+    if selected_model == 'random_forest' and normalized_weights:
+        # Apply feature weights before training
+        for feature, weight in normalized_weights.items():
+            if feature in X.columns:
+                X[feature] *= weight
 
     # Split the data into training and testing sets
     test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
@@ -353,9 +359,6 @@ if st.session_state.step == 1:
             st.session_state.df = df  # Update in session state
 
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
-
-            # Display Next button with on_click callback
-            st.button("Next →", on_click=next_step, key='next_step1')
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
@@ -374,13 +377,6 @@ elif st.session_state.step == 2:
         In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
         This guided process ensures that you choose the most relevant features for accurate predictions.
     """)
-
-    # Navigation buttons with unique keys and on_click callbacks
-    col1, col2 = st.columns([1,1])
-    with col1:
-        st.button("← Back", on_click=prev_step, key='back_step2')
-    with col2:
-        st.button("Next →", on_click=next_step, key='next_step2')
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
@@ -401,16 +397,10 @@ elif st.session_state.step == 3:
         key='feature_selection'
     )
 
-    # Navigation buttons with unique keys and on_click callbacks
-    col1, col2 = st.columns([1,1])
-    with col1:
-        st.button("← Back", on_click=prev_step, key='back_step3')
-    with col2:
-        if selected_features:
-            st.session_state.selected_features = selected_features
-            st.button("Next →", on_click=next_step, key='next_step3')
-        else:
-            st.warning("⚠️ Please select at least one independent variable.")
+    if selected_features:
+        st.session_state.selected_features = selected_features
+    else:
+        st.warning("⚠️ Please select at least one independent variable.")
 
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
@@ -526,16 +516,13 @@ elif st.session_state.step == 4:
             # Display "Run a New Model" button
             st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app_bottom')
 
-# Display a horizontal rule at the bottom
-st.markdown("---")
-
 # Navigation buttons at the bottom with unique keys and on_click callbacks
-col_back, col_run, col_reset = st.columns([1,1,1])
-with col_back:
-    if st.session_state.step == 1:
-        pass  # No back button on the first step
-    else:
+st.markdown("---")
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.session_state.step > 1:
         st.button("← Back", on_click=prev_step, key='back_bottom')
-with col_run:
-    pass  # Placeholder for alignment
-# Remove the "Run a New Model" button from here as per your instruction
+with col2:
+    if st.session_state.step < 4:
+        st.button("Next →", on_click=next_step, key='next_bottom')
+
