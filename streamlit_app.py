@@ -11,10 +11,16 @@ from sklearn.metrics import mean_squared_error
 
 # Function to clear Streamlit cache
 def clear_cache():
-    st.cache_data.clear()
-    st.cache_resource.clear()
+    try:
+        st.cache_data.clear()
+    except:
+        pass
+    try:
+        st.cache_resource.clear()
+    except:
+        pass
 
-# Clear cache at the beginning of each run
+# Clear cache at the beginning
 clear_cache()
 
 # Set the page configuration
@@ -46,7 +52,7 @@ def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
 
-# Function to reset the app to Step 1
+# Function to reset the app to Step 1 and clear cache
 def reset_app():
     st.session_state.step = 1
     st.session_state.df = None
@@ -54,6 +60,7 @@ def reset_app():
     st.session_state.selected_features = []
     st.session_state.selected_model = None
     clear_cache()
+    st.experimental_rerun()
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -112,8 +119,7 @@ def generate_account_adoption_rank(df):
     
     return df
 
-# Model functions with caching
-@st.cache_resource
+# Model functions
 def run_linear_regression(X, y):
     model = LinearRegression()
     model.fit(X, y)
@@ -121,7 +127,6 @@ def run_linear_regression(X, y):
     mse = mean_squared_error(y, predictions)
     return predictions, mse
 
-@st.cache_resource
 def run_random_forest(X_train, X_test, y_train, y_test):
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
@@ -131,7 +136,6 @@ def run_random_forest(X_train, X_test, y_train, y_test):
     feature_importances = pd.Series(importances, index=X_train.columns).sort_values(ascending=False)
     return predictions, mse, feature_importances
 
-@st.cache_resource
 def run_weighted_scoring_model(df_encoded, normalized_weights, target_column):
     # Calculate weighted score
     df_encoded['Weighted_Score'] = 0
