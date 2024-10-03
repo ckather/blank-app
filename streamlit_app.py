@@ -3,6 +3,7 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
+import numpy as np  # Added import for NumPy
 import matplotlib.pyplot as plt
 import plotly.express as px
 import statsmodels.api as sm
@@ -185,9 +186,14 @@ def run_random_forest(X, y, normalized_weights):
             if feature in X.columns:
                 X[feature] *= weight
 
+    # Handle infinite values
+    for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+    X = X.dropna()
+
     # Split the data into training and testing sets
     test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y.loc[X.index], test_size=test_size/100, random_state=42)
 
     st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
 
@@ -285,11 +291,17 @@ def run_selected_model(normalized_weights):
 
     # Handle missing values
     for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
         if X[col].dtype == 'object':
             X[col].fillna(X[col].mode()[0], inplace=True)
         else:
             X[col].fillna(X[col].mean(), inplace=True)
+
+    # Handle infinite values
+    for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+
+    X = X.dropna()
+    y = y.loc[X.index]  # Align y with X after dropping rows
 
     # Execute selected model with loading spinner
     if selected_model == 'linear_regression':
@@ -319,7 +331,7 @@ def render_sidebar():
 
     for i, title in enumerate(step_titles, 1):
         if i == current_step:
-            # Highlight current step
+            # Highlight current step with green checkmark
             st.sidebar.markdown(f"### ✅ **Step {i}: {title}**")
         elif i < current_step:
             # Completed steps with green checkmark
@@ -551,12 +563,11 @@ col1, col2 = st.columns([1, 1])
 with col1:
     if st.session_state.step > 1:
         st.markdown(
-            f"""
+            """
             <style>
-            .button-back {{
-                display: flex;
-                justify-content: center;
-            }}
+            .stButton>button {
+                width: 100%;
+            }
             </style>
             """,
             unsafe_allow_html=True
@@ -565,12 +576,11 @@ with col1:
 with col2:
     if st.session_state.step < 4:
         st.markdown(
-            f"""
+            """
             <style>
-            .button-next {{
-                display: flex;
-                justify-content: center;
-            }}
+            .stButton>button {
+                width: 100%;
+            }
             </style>
             """,
             unsafe_allow_html=True
