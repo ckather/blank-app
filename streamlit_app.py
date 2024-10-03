@@ -345,7 +345,7 @@ render_sidebar()
 
 # Step 1: Upload CSV and Download Template
 if st.session_state.step == 1:
-    st.title("💊 Pathways Prediction Platform")
+    st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 1: Upload Your CSV File")
 
     # Provide the download button for the CSV template
