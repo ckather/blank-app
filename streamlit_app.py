@@ -509,4 +509,3 @@ elif st.session_state.step == 4:
         pass  # Placeholder for alignment
     with col_reset:
         st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app')
-
