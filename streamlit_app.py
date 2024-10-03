@@ -411,7 +411,7 @@ elif st.session_state.step == 2:
     target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
     st.session_state.target_column = target_column  # Ensure it's set
 
-    st.markdown(f"**Selected Target Variable:** {target_column}")
+    st.markdown(f"**Selected Target Variable:** `{target_column}`")
 
     # Add descriptive text guiding to next steps
     st.write("""
