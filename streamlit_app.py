@@ -479,151 +479,150 @@ elif st.session_state.step == 3:
     else:
         st.warning("⚠️ Please select at least one independent variable.")
 
-# **Part 1 ends here. The continuation is in Part 2.**
 
 # Continuing from the previous code...
 
-    # Step 4: Choose Model & Assign Weights
-    elif st.session_state.step == 4:
-        df = st.session_state.df
-        target_column = st.session_state.target_column
-        selected_features = st.session_state.selected_features
+# Step 4: Choose Model & Assign Weights
+elif st.session_state.step == 4:
+    df = st.session_state.df
+    target_column = st.session_state.target_column
+    selected_features = st.session_state.selected_features
 
-        # **Moved the header to always appear at the top**
-        st.subheader("Step 4: Choose Model & Assign Weights")
-        st.write("Select the predictive model you want to run based on your selected features.")
+    # Moved the header to always appear at the top
+    st.subheader("Step 4: Choose Model & Assign Weights")
+    st.write("Select the predictive model you want to run based on your selected features.")
 
-        # Model Selection Buttons in the specified order
-        col1, col2, col3 = st.columns(3)
+    # Model Selection Buttons in the specified order
+    col1, col2, col3 = st.columns(3)
 
-        with col1:
-            st.button("Run Linear Regression", on_click=lambda: setattr(st.session_state, 'selected_model', 'linear_regression'), key='model_linear_regression')
-        with col2:
-            st.button("Run Weighted Scoring", on_click=lambda: setattr(st.session_state, 'selected_model', 'weighted_scoring_model'), key='model_weighted_scoring')
-        with col3:
-            st.button("Run Random Forest", on_click=lambda: setattr(st.session_state, 'selected_model', 'random_forest'), key='model_random_forest')
-
-        # Show description based on selected model
-        if st.session_state.selected_model:
-            if st.session_state.selected_model == 'linear_regression':
-                st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
-                normalized_weights = None  # Weights not needed for Linear Regression
-            else:
-                if st.session_state.selected_model == 'random_forest':
-                    st.info("**Random Forest:** Ideal for handling complex datasets with non-linear relationships and interactions.")
-                elif st.session_state.selected_model == 'weighted_scoring_model':
-                    st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
-
-                # Add note on top of the sliders
-                st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or a Random Forest. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
-
-                # Instructions
-                st.markdown("**Assign Weights to Selected Features** 🎯")
-                st.write("""
-                    Assign how important each feature is in determining the **Account Adoption Rank Order**. 
-                    The weights must add up to **10**. Use the number inputs below to assign weights.
-                """)
-
-                # Initialize a dictionary to store user-assigned weights
-                feature_weights = {}
-
-                st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
-
-                # Create number inputs for each feature
-                for feature in selected_features:
-                    weight = st.number_input(
-                        f"Weight for **{feature}**:",
-                        min_value=0.0,
-                        max_value=10.0,
-                        value=0.0,
-                        step=0.5,
-                        format="%.1f",
-                        key=f"weight_input_{feature}"
-                    )
-                    feature_weights[feature] = weight
-
-                # Calculate total weight
-                total_weight = sum(feature_weights.values())
-
-                # Display total weight with validation
-                st.markdown("---")
-                st.markdown("### 🎯 **Total Weight Assigned:**")
-
-                if total_weight < 10:
-                    status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
-                    color = "#FFC107"  # Yellow
-                elif total_weight > 10:
-                    status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
-                    color = "#DC3545"  # Red
-                else:
-                    status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
-                    color = "#28A745"  # Green
-
-                # Display status
-                st.markdown(
-                    f"""
-                    <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
-                        <h3 style="color:white; text-align:center;">{status}</h3>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                # Progress bar
-                st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
-
-                # Normalize weights if necessary
-                if total_weight != 10:
-                    st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
-                    if total_weight > 0:
-                        normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
-                    else:
-                        normalized_weights = feature_weights  # Avoid division by zero
-                else:
-                    normalized_weights = feature_weights
-
-                # Display normalized weights
-                st.markdown("**Normalized Weights:**")
-                normalized_weights_df = pd.DataFrame({
-                    'Feature': list(normalized_weights.keys()),
-                    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
-                })
-                st.dataframe(normalized_weights_df)
-
-            # Run Model Button with unique key and on_click callback
-            st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
-
-        # Display "Run Another Model" button after the model has run
-        if st.session_state.model_has_run:
-            # **Added "Run Another Model" button**
-            st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
-
-    # Navigation buttons at the bottom with unique keys and on_click callbacks
-    st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2 = st.columns([1, 1])
     with col1:
-        if st.session_state.step > 1:
-            st.markdown(
-                """
-                <style>
-                .stButton>button {
-                    width: 100%;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            st.button("← Back", on_click=prev_step, key='back_bottom')
+        st.button("Run Linear Regression", on_click=lambda: setattr(st.session_state, 'selected_model', 'linear_regression'), key='model_linear_regression')
     with col2:
-        if st.session_state.step < 4:
+        st.button("Run Weighted Scoring", on_click=lambda: setattr(st.session_state, 'selected_model', 'weighted_scoring_model'), key='model_weighted_scoring')
+    with col3:
+        st.button("Run Random Forest", on_click=lambda: setattr(st.session_state, 'selected_model', 'random_forest'), key='model_random_forest')
+
+    # Show description based on selected model
+    if st.session_state.selected_model:
+        if st.session_state.selected_model == 'linear_regression':
+            st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+            normalized_weights = None  # Weights not needed for Linear Regression
+        else:
+            if st.session_state.selected_model == 'random_forest':
+                st.info("**Random Forest:** Ideal for handling complex datasets with non-linear relationships and interactions.")
+            elif st.session_state.selected_model == 'weighted_scoring_model':
+                st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
+
+            # Add note on top of the sliders
+            st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or a Random Forest. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+
+            # Instructions
+            st.markdown("**Assign Weights to Selected Features** 🎯")
+            st.write("""
+                Assign how important each feature is in determining the **Account Adoption Rank Order**. 
+                The weights must add up to **10**. Use the number inputs below to assign weights.
+            """)
+
+            # Initialize a dictionary to store user-assigned weights
+            feature_weights = {}
+
+            st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
+
+            # Create number inputs for each feature
+            for feature in selected_features:
+                weight = st.number_input(
+                    f"Weight for **{feature}**:",
+                    min_value=0.0,
+                    max_value=10.0,
+                    value=0.0,
+                    step=0.5,
+                    format="%.1f",
+                    key=f"weight_input_{feature}"
+                )
+                feature_weights[feature] = weight
+
+            # Calculate total weight
+            total_weight = sum(feature_weights.values())
+
+            # Display total weight with validation
+            st.markdown("---")
+            st.markdown("### 🎯 **Total Weight Assigned:**")
+
+            if total_weight < 10:
+                status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
+                color = "#FFC107"  # Yellow
+            elif total_weight > 10:
+                status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
+                color = "#DC3545"  # Red
+            else:
+                status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
+                color = "#28A745"  # Green
+
+            # Display status
             st.markdown(
-                """
-                <style>
-                .stButton>button {
-                    width: 100%;
-                }
-                </style>
+                f"""
+                <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+                    <h3 style="color:white; text-align:center;">{status}</h3>
+                </div>
                 """,
                 unsafe_allow_html=True
             )
-            st.button("Next →", on_click=next_step, key='next_bottom')
+
+            # Progress bar
+            st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+
+            # Normalize weights if necessary
+            if total_weight != 10:
+                st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+                if total_weight > 0:
+                    normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+                else:
+                    normalized_weights = feature_weights  # Avoid division by zero
+            else:
+                normalized_weights = feature_weights
+
+            # Display normalized weights
+            st.markdown("**Normalized Weights:**")
+            normalized_weights_df = pd.DataFrame({
+                'Feature': list(normalized_weights.keys()),
+                'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+            })
+            st.dataframe(normalized_weights_df)
+
+        # Run Model Button with unique key and on_click callback
+        st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
+
+    # Display "Run Another Model" button after the model has run
+    if st.session_state.model_has_run:
+        # Added "Run Another Model" button
+        st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
+
+# Navigation buttons at the bottom with unique keys and on_click callbacks
+st.markdown("<br>", unsafe_allow_html=True)
+col1, col2 = st.columns([1, 1])
+with col1:
+    if st.session_state.step > 1:
+        st.markdown(
+            """
+            <style>
+            .stButton>button {
+                width: 100%;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.button("← Back", on_click=prev_step, key='back_bottom')
+with col2:
+    if st.session_state.step < 4:
+        st.markdown(
+            """
+            <style>
+            .stButton>button {
+                width: 100%;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.button("Next →", on_click=next_step, key='next_bottom')
