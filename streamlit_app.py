@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 
 # Set the page configuration
-st.set_page_config(page_title="💊 Pathways Prediction Platform", layout="wide")
+st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
