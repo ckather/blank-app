@@ -1,3 +1,5 @@
+# app.py
+
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
@@ -37,6 +39,12 @@ def reset_app():
     st.session_state.df = None
     st.session_state.target_column = 'Account Adoption Rank Order'
     st.session_state.selected_features = []
+    st.session_state.selected_model = None
+    st.session_state.model_has_run = False
+    st.experimental_rerun()
+
+# Function to reset the last page to allow running another model
+def reset_last_page():
     st.session_state.selected_model = None
     st.session_state.model_has_run = False
     st.experimental_rerun()
@@ -174,6 +182,14 @@ def run_linear_regression(X, y):
     )
     st.plotly_chart(fig)
 
+    # Interpretation in layman's terms
+    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown(f"""
+    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase.
+    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
+
 def run_random_forest(X, y, normalized_weights):
     """
     Trains and evaluates a Random Forest Regressor.
@@ -250,24 +266,37 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         else:
             st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
 
-    # Correlation with target
-    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
-    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
+    # Rank the accounts based on Weighted_Score
+    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
+
+    # Divide the accounts into three groups
+    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+
+    # Display the counts of each category
+    adopter_counts = df_encoded['Adopter_Category'].value_counts().sort_index()
+    st.write("**Adopter Category Distribution:**")
+    st.bar_chart(adopter_counts)
 
     # Display top accounts based on score
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
     st.dataframe(top_accounts)
 
-    # Plot Weighted Score vs Target
+    # Plot Weighted Score vs Target with color coding for adopter categories
     fig = px.scatter(
         df_encoded,
         x='Weighted_Score',
         y=target_column,
+        color='Adopter_Category',
         labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
-        title='Weighted Score vs Actual'
+        title='Weighted Score vs Actual',
+        color_discrete_sequence=px.colors.qualitative.Set1
     )
     st.plotly_chart(fig)
+
+    # Correlation with target
+    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
+    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
 
 def run_selected_model(normalized_weights):
     """
@@ -317,6 +346,7 @@ def run_selected_model(normalized_weights):
 
     # After running the model, reset selected_model to allow re-selection
     st.session_state.selected_model = None
+# Continuing from the previous code...
 
 def render_sidebar():
     """
@@ -403,13 +433,14 @@ if st.session_state.step == 1:
 
 # Step 2: Confirm Target Variable
 elif st.session_state.step == 2:
+    st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 2: Confirm Target Variable")
 
     # Display the selected target variable
     target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
     st.session_state.target_column = target_column  # Ensure it's set
 
-    st.markdown(f"**Selected Target Variable:** {target_column}")
+    st.markdown(f"**Selected Target Variable:** `{target_column}`")
 
     # Add descriptive text guiding to next steps
     st.write("""
@@ -419,6 +450,7 @@ elif st.session_state.step == 2:
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
+    st.title("💊 Behavior Prediction Platform 💊")
     df = st.session_state.df
     target_column = st.session_state.target_column
     st.subheader("Step 3: Select Independent Variables")
@@ -443,10 +475,12 @@ elif st.session_state.step == 3:
 
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
+    st.title("💊 Behavior Prediction Platform 💊")
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
 
+    # Moved the header to always appear at the top
     st.subheader("Step 4: Choose Model & Assign Weights")
     st.write("Select the predictive model you want to run based on your selected features.")
 
@@ -550,10 +584,10 @@ elif st.session_state.step == 4:
         # Run Model Button with unique key and on_click callback
         st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
 
-        # Display "Run a New Model" button after the model has run
-        if st.session_state.model_has_run:
-            # Display "Run a New Model" button
-            st.button("Run a New Model 🔄", on_click=reset_app, key='reset_app_bottom')
+    # Display "Run Another Model" button after the model has run
+    if st.session_state.model_has_run:
+        # Added "Run Another Model" button
+        st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
 
 # Navigation buttons at the bottom with unique keys and on_click callbacks
 st.markdown("<br>", unsafe_allow_html=True)
