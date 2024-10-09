@@ -216,7 +216,7 @@ def run_random_forest(X, y, normalized_weights):
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
 
-    st.subheader("🌲 Random Forest Results")
+    st.subheader("🤖 Prediction Modeling Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
 
     # Plot Feature Importance
@@ -245,12 +245,27 @@ def run_random_forest(X, y, normalized_weights):
         line=dict(color="Red", dash="dash")
     )
     st.plotly_chart(fig2)
+
+    # General explanation about prediction modeling
+    st.markdown("### 📚 **Understanding Prediction Modeling**")
+    st.write("""
+    Prediction modeling involves using statistical techniques to predict future outcomes based on historical data.
+    It helps in identifying patterns and making informed decisions.
+
+    - **When to Use:** Ideal for forecasting and making predictions when you have sufficient historical data.
+    - **Advantages:** Can handle complex relationships and interactions between variables.
+    - **Considerations:** Requires careful feature selection and tuning to avoid overfitting.
+
+    The model has analyzed your data and provided predictions based on the selected features and their importance.
+    Use these insights to guide your strategic planning and decision-making processes.
+    """)
+
 # Continuing from the previous code...
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
-    Calculates and evaluates a Weighted Scoring Model and displays the results in a fun leaderboard format,
-    including an explanation of the ranking scores.
+    Calculates and evaluates a Weighted Scoring Model and displays the results,
+    with the explanation appearing before the leaderboard.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
 
@@ -281,6 +296,22 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         'Late Adopter': '🐢'
     }
 
+    # Explanation of the ranking scores (moved above the leaderboard)
+    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
+    st.write("""
+    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
+    This score reflects the account's potential based on the criteria you set.
+
+    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
+    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
+    - **Adopter Categories** are assigned based on the rankings:
+        - 🚀 **Early Adopter:** Top third of accounts.
+        - ⏳ **Middle Adopter:** Middle third of accounts.
+        - 🐢 **Late Adopter:** Bottom third of accounts.
+
+    Use this information to prioritize accounts and tailor your strategies accordingly.
+    """)
+
     # Display the leaderboard
     st.markdown("### 🏆 **Leaderboard of Accounts**")
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
@@ -298,22 +329,6 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         - **{target_column}:** {row[target_column]}
         """)
         st.markdown("---")
-
-    # Explanation of the ranking scores
-    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
-    st.write("""
-    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
-    This score reflects the account's potential based on the criteria you set.
-
-    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
-    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
-    - **Adopter Categories** are assigned based on the rankings:
-        - 🚀 **Early Adopter:** Top third of accounts.
-        - ⏳ **Middle Adopter:** Middle third of accounts.
-        - 🐢 **Late Adopter:** Bottom third of accounts.
-
-    Use this information to prioritize accounts and tailor your strategies accordingly.
-    """)
 
     # Correlation with target
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
@@ -356,7 +371,7 @@ def run_selected_model(normalized_weights):
         with st.spinner("Training Linear Regression model..."):
             run_linear_regression(X, y)
     elif selected_model == 'random_forest':
-        with st.spinner("Training Random Forest model..."):
+        with st.spinner("Running Prediction Modeling..."):
             run_random_forest(X, y, normalized_weights)
     elif selected_model == 'weighted_scoring_model':
         with st.spinner("Calculating Weighted Scoring Model..."):
@@ -512,7 +527,7 @@ elif st.session_state.step == 4:
     with col2:
         st.button("Run Weighted Scoring", on_click=lambda: setattr(st.session_state, 'selected_model', 'weighted_scoring_model'), key='model_weighted_scoring')
     with col3:
-        st.button("Run Random Forest", on_click=lambda: setattr(st.session_state, 'selected_model', 'random_forest'), key='model_random_forest')
+        st.button("Run Prediction Modeling", on_click=lambda: setattr(st.session_state, 'selected_model', 'random_forest'), key='model_prediction_modeling')
 
     # Show description based on selected model
     if st.session_state.selected_model:
@@ -521,12 +536,12 @@ elif st.session_state.step == 4:
             normalized_weights = None  # Weights not needed for Linear Regression
         else:
             if st.session_state.selected_model == 'random_forest':
-                st.info("**Random Forest:** Ideal for handling complex datasets with non-linear relationships and interactions.")
+                st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
             elif st.session_state.selected_model == 'weighted_scoring_model':
                 st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
 
             # Add note on top of the sliders
-            st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or a Random Forest. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+            st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
 
             # Instructions
             st.markdown("**Assign Weights to Selected Features** 🎯")
@@ -638,3 +653,4 @@ with col2:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
+
