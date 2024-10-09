@@ -245,10 +245,11 @@ def run_random_forest(X, y, normalized_weights):
         line=dict(color="Red", dash="dash")
     )
     st.plotly_chart(fig2)
+# Continuing from the previous code...
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
-    Calculates and evaluates a Weighted Scoring Model based on selected features and their normalized weights.
+    Calculates and evaluates a Weighted Scoring Model and displays the results in a fun leaderboard format.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
 
@@ -272,27 +273,30 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     # Divide the accounts into three groups
     df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
 
-    # Display the counts of each category
-    adopter_counts = df_encoded['Adopter_Category'].value_counts().sort_index()
-    st.write("**Adopter Category Distribution:**")
-    st.bar_chart(adopter_counts)
+    # Mapping adopter categories to emojis
+    adopter_emojis = {
+        'Early Adopter': '🚀',
+        'Middle Adopter': '⏳',
+        'Late Adopter': '🐢'
+    }
 
-    # Display top accounts based on score
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=20, value=10, step=1)
+    # Display the leaderboard
+    st.markdown("### 🏆 **Leaderboard of Accounts**")
+    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
-    st.dataframe(top_accounts)
 
-    # Plot Weighted Score vs Target with color coding for adopter categories
-    fig = px.scatter(
-        df_encoded,
-        x='Weighted_Score',
-        y=target_column,
-        color='Adopter_Category',
-        labels={'Weighted_Score': 'Weighted Score', target_column: target_column},
-        title='Weighted Score vs Actual',
-        color_discrete_sequence=px.colors.qualitative.Set1
-    )
-    st.plotly_chart(fig)
+    # Display accounts with emojis
+    for idx, row in top_accounts.iterrows():
+        emoji = adopter_emojis.get(row['Adopter_Category'], '')
+        st.markdown(f"""
+        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
+        - **Account Number:** {row['acct_numb']}  
+        - **Weighted Score:** {row['Weighted_Score']:.2f}  
+        - **Adopter Category:** {row['Adopter_Category']}  
+        - **{target_column}:** {row[target_column]}
+        """)
+        st.markdown("---")
 
     # Correlation with target
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
@@ -346,7 +350,6 @@ def run_selected_model(normalized_weights):
 
     # After running the model, reset selected_model to allow re-selection
     st.session_state.selected_model = None
-# Continuing from the previous code...
 
 def render_sidebar():
     """
