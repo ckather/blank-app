@@ -249,7 +249,8 @@ def run_random_forest(X, y, normalized_weights):
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
-    Calculates and evaluates a Weighted Scoring Model and displays the results in a fun leaderboard format.
+    Calculates and evaluates a Weighted Scoring Model and displays the results in a fun leaderboard format,
+    including an explanation of the ranking scores.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
 
@@ -297,6 +298,22 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         - **{target_column}:** {row[target_column]}
         """)
         st.markdown("---")
+
+    # Explanation of the ranking scores
+    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
+    st.write("""
+    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
+    This score reflects the account's potential based on the criteria you set.
+
+    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
+    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
+    - **Adopter Categories** are assigned based on the rankings:
+        - 🚀 **Early Adopter:** Top third of accounts.
+        - ⏳ **Middle Adopter:** Middle third of accounts.
+        - 🐢 **Late Adopter:** Bottom third of accounts.
+
+    Use this information to prioritize accounts and tailor your strategies accordingly.
+    """)
 
     # Correlation with target
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
