@@ -3,7 +3,7 @@
 # Import necessary libraries
 import streamlit as st
 import pandas as pd
-import numpy as np  # Added import for NumPy
+import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import statsmodels.api as sm
@@ -43,7 +43,6 @@ def reset_app():
 # Function to reset to Step 4 to allow running another model
 def reset_to_step_4():
     st.session_state.step = 4
-    # Do not reset selected_model here
     st.experimental_rerun()
 
 # Function to advance to the next step
@@ -57,6 +56,16 @@ def next_step():
 def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
+
+# Define functions to set the selected model
+def select_linear_regression():
+    st.session_state.selected_model = 'linear_regression'
+
+def select_weighted_scoring():
+    st.session_state.selected_model = 'weighted_scoring_model'
+
+def select_random_forest():
+    st.session_state.selected_model = 'random_forest'
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -515,11 +524,11 @@ elif st.session_state.step == 4:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.button("Run Linear Regression", on_click=lambda: setattr(st.session_state, 'selected_model', 'linear_regression'), key='model_linear_regression')
+        st.button("Run Linear Regression", on_click=select_linear_regression, key='model_linear_regression')
     with col2:
-        st.button("Run Weighted Scoring", on_click=lambda: setattr(st.session_state, 'selected_model', 'weighted_scoring_model'), key='model_weighted_scoring')
+        st.button("Run Weighted Scoring", on_click=select_weighted_scoring, key='model_weighted_scoring')
     with col3:
-        st.button("Run Prediction Modeling", on_click=lambda: setattr(st.session_state, 'selected_model', 'random_forest'), key='model_prediction_modeling')
+        st.button("Run Prediction Modeling", on_click=select_random_forest, key='model_prediction_modeling')
 
     # Show description based on selected model
     if st.session_state.selected_model:
@@ -613,6 +622,8 @@ elif st.session_state.step == 4:
 
         # Run Model Button with unique key and on_click callback
         st.button("Run Model", on_click=run_selected_model, key='run_model')
+    else:
+        st.info("Please select a model to proceed.")
 
 # Step 5: Display Results
 elif st.session_state.step == 5:
