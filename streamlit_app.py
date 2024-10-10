@@ -43,7 +43,7 @@ def reset_app():
 # Function to reset to Step 4 to allow running another model
 def reset_to_step_4():
     st.session_state.step = 4
-    st.session_state.selected_model = None
+    # Do not reset selected_model here
     st.experimental_rerun()
 
 # Function to advance to the next step
@@ -634,6 +634,8 @@ elif st.session_state.step == 5:
     elif selected_model == 'weighted_scoring_model':
         with st.spinner("Calculating Weighted Scoring Model..."):
             run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+    else:
+        st.error("No model selected. Please go back to Step 4 and select a model.")
 
     # Navigation buttons on Step 5
     st.markdown("<br>", unsafe_allow_html=True)
