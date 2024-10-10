@@ -16,7 +16,7 @@ st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
-    st.session_state.step = 1  # Current step: 1 to 4
+    st.session_state.step = 1  # Current step: 1 to 5
 
 if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
@@ -30,30 +30,27 @@ if 'selected_features' not in st.session_state:
 if 'selected_model' not in st.session_state:
     st.session_state.selected_model = None  # Selected model
 
-if 'model_has_run' not in st.session_state:
-    st.session_state.model_has_run = False  # Indicates if a model has been run
+if 'normalized_weights' not in st.session_state:
+    st.session_state.normalized_weights = None  # Normalized weights
 
 # Function to reset the app to Step 1
 def reset_app():
+    for key in st.session_state.keys():
+        del st.session_state[key]
     st.session_state.step = 1
-    st.session_state.df = None
-    st.session_state.target_column = 'Account Adoption Rank Order'
-    st.session_state.selected_features = []
-    st.session_state.selected_model = None
-    st.session_state.model_has_run = False
     st.experimental_rerun()
 
-# Function to reset the last page to allow running another model
-def reset_last_page():
+# Function to reset to Step 4 to allow running another model
+def reset_to_step_4():
+    st.session_state.step = 4
     st.session_state.selected_model = None
-    st.session_state.model_has_run = False
     st.experimental_rerun()
 
 # Function to advance to the next step
 def next_step():
     if st.session_state.step == 1 and st.session_state.df is None:
         st.warning("⚠️ Please upload a CSV file before proceeding.")
-    elif st.session_state.step < 4:
+    elif st.session_state.step < 5:
         st.session_state.step += 1
 
 # Function to go back to the previous step
@@ -260,14 +257,27 @@ def run_random_forest(X, y, normalized_weights):
     Use these insights to guide your strategic planning and decision-making processes.
     """)
 
-# Continuing from the previous code...
-
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
-    Calculates and evaluates a Weighted Scoring Model and displays the results,
-    with the explanation appearing before the leaderboard.
+    Calculates and evaluates a Weighted Scoring Model and displays the results.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
+
+    # Explanation of the ranking scores
+    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
+    st.write("""
+    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
+    This score reflects the account's potential based on the criteria you set.
+
+    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
+    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
+    - **Adopter Categories** are assigned based on the rankings:
+        - 🚀 **Early Adopter:** Top third of accounts.
+        - ⏳ **Middle Adopter:** Middle third of accounts.
+        - 🐢 **Late Adopter:** Bottom third of accounts.
+
+    Use this information to prioritize accounts and tailor your strategies accordingly.
+    """)
 
     # Encode categorical features
     df_encoded = encode_categorical_features(df.copy(), mappings)
@@ -296,22 +306,6 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         'Late Adopter': '🐢'
     }
 
-    # Explanation of the ranking scores (moved above the leaderboard)
-    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
-    st.write("""
-    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
-    This score reflects the account's potential based on the criteria you set.
-
-    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
-    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
-    - **Adopter Categories** are assigned based on the rankings:
-        - 🚀 **Early Adopter:** Top third of accounts.
-        - ⏳ **Middle Adopter:** Middle third of accounts.
-        - 🐢 **Late Adopter:** Bottom third of accounts.
-
-    Use this information to prioritize accounts and tailor your strategies accordingly.
-    """)
-
     # Display the leaderboard
     st.markdown("### 🏆 **Leaderboard of Accounts**")
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
@@ -334,14 +328,15 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
     st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
 
-def run_selected_model(normalized_weights):
+def run_selected_model():
     """
-    Executes the selected model based on user input.
+    Executes the selected model based on user input and advances to Step 5.
     """
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
     selected_model = st.session_state.selected_model
+    normalized_weights = st.session_state.normalized_weights
 
     # Preprocess data
     X = df[selected_features].copy()
@@ -366,28 +361,24 @@ def run_selected_model(normalized_weights):
     X = X.dropna()
     y = y.loc[X.index]  # Align y with X after dropping rows
 
-    # Execute selected model with loading spinner
-    if selected_model == 'linear_regression':
-        with st.spinner("Training Linear Regression model..."):
-            run_linear_regression(X, y)
-    elif selected_model == 'random_forest':
-        with st.spinner("Running Prediction Modeling..."):
-            run_random_forest(X, y, normalized_weights)
-    elif selected_model == 'weighted_scoring_model':
-        with st.spinner("Calculating Weighted Scoring Model..."):
-            run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+    # Store preprocessed data in session state for use in Step 5
+    st.session_state.X = X
+    st.session_state.y = y
 
-    # After running the model, set model_has_run to True
-    st.session_state.model_has_run = True
-
-    # After running the model, reset selected_model to allow re-selection
-    st.session_state.selected_model = None
+    # Advance to Step 5
+    st.session_state.step = 5
 
 def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
     """
-    step_titles = ["Upload CSV File", "Confirm Target Variable", "Select Independent Variables", "Choose Model & Assign Weights"]
+    step_titles = [
+        "Upload CSV File",
+        "Confirm Target Variable",
+        "Select Independent Variables",
+        "Choose Model & Assign Weights",
+        "View Results"
+    ]
     current_step = st.session_state.step
 
     st.sidebar.title("📖 Instructions")
@@ -511,13 +502,14 @@ elif st.session_state.step == 3:
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
+    st.subheader("Step 4: Choose Model & Assign Weights")
+    st.write("Select the predictive model you want to run based on your selected features.")
+
     df = st.session_state.df
     target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
 
-    # Moved the header to always appear at the top
-    st.subheader("Step 4: Choose Model & Assign Weights")
-    st.write("Select the predictive model you want to run based on your selected features.")
+    # Model selection and weight assignment interface
 
     # Model Selection Buttons in the specified order
     col1, col2, col3 = st.columns(3)
@@ -533,7 +525,7 @@ elif st.session_state.step == 4:
     if st.session_state.selected_model:
         if st.session_state.selected_model == 'linear_regression':
             st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
-            normalized_weights = None  # Weights not needed for Linear Regression
+            st.session_state.normalized_weights = None  # Weights not needed for Linear Regression
         else:
             if st.session_state.selected_model == 'random_forest':
                 st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
@@ -616,41 +608,68 @@ elif st.session_state.step == 4:
             })
             st.dataframe(normalized_weights_df)
 
+            # Store normalized weights in session state
+            st.session_state.normalized_weights = normalized_weights
+
         # Run Model Button with unique key and on_click callback
-        st.button("Run Model", on_click=lambda: run_selected_model(normalized_weights), key='run_model')
+        st.button("Run Model", on_click=run_selected_model, key='run_model')
 
-    # Display "Run Another Model" button after the model has run
-    if st.session_state.model_has_run:
-        # Added "Run Another Model" button
-        st.button("Run Another Model 🔄", on_click=reset_last_page, key='reset_last_page_button')
+# Step 5: Display Results
+elif st.session_state.step == 5:
+    st.title("💊 Behavior Prediction Platform 💊")
+    st.subheader("Step 5: View Results")
 
-# Navigation buttons at the bottom with unique keys and on_click callbacks
-st.markdown("<br>", unsafe_allow_html=True)
-col1, col2 = st.columns([1, 1])
-with col1:
-    if st.session_state.step > 1:
-        st.markdown(
-            """
-            <style>
-            .stButton>button {
-                width: 100%;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        st.button("← Back", on_click=prev_step, key='back_bottom')
-with col2:
-    if st.session_state.step < 4:
-        st.markdown(
-            """
-            <style>
-            .stButton>button {
-                width: 100%;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        st.button("Next →", on_click=next_step, key='next_bottom')
+    selected_model = st.session_state.selected_model
+    normalized_weights = st.session_state.normalized_weights
+    df = st.session_state.df
+    target_column = st.session_state.target_column
 
+    # Execute the selected model and display results
+    if selected_model == 'linear_regression':
+        with st.spinner("Training Linear Regression model..."):
+            run_linear_regression(st.session_state.X, st.session_state.y)
+    elif selected_model == 'random_forest':
+        with st.spinner("Running Prediction Modeling..."):
+            run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
+    elif selected_model == 'weighted_scoring_model':
+        with st.spinner("Calculating Weighted Scoring Model..."):
+            run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+
+    # Navigation buttons on Step 5
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.button("← Back to Step 4", on_click=reset_to_step_4, key='back_to_step_4')
+    with col2:
+        st.button("🔄 Restart", on_click=reset_app, key='restart')
+
+# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 1-4)
+if st.session_state.step != 5:
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.session_state.step > 1:
+            st.markdown(
+                """
+                <style>
+                .stButton>button {
+                    width: 100%;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+            st.button("← Back", on_click=prev_step, key='back_bottom')
+    with col2:
+        if st.session_state.step < 5:
+            st.markdown(
+                """
+                <style>
+                .stButton>button {
+                    width: 100%;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True
+            )
+            st.button("Next →", on_click=next_step, key='next_bottom')
