@@ -35,7 +35,7 @@ if 'normalized_weights' not in st.session_state:
 
 # Function to reset the app to Step 1
 def reset_app():
-    for key in st.session_state.keys():
+    for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.step = 1
     st.experimental_rerun()
@@ -93,7 +93,7 @@ def generate_account_adoption_rank(df):
     Generates the 'Account Adoption Rank Order' based on total sales across different periods.
     If 'Total_2022_and_2023' is missing, it calculates it using available sales columns.
     """
-    # Define the columns to sum for ranking (adjust these columns based on your data)
+    # Define the columns to sum for ranking
     sales_columns = [
         'ProdA_sales_first12',
         'ProdA_sales_2022',
@@ -393,6 +393,7 @@ def render_sidebar():
     st.sidebar.title("📖 Navigation")
 
     for i, title in enumerate(step_titles, 1):
+        # All steps are displayed from the beginning
         if i == current_step:
             # Highlight current step with green checkmark
             st.sidebar.markdown(f"### ✅ **Step {i}: {title}**")
