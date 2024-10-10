@@ -377,11 +377,11 @@ def render_sidebar():
         "Confirm Target Variable",
         "Select Independent Variables",
         "Choose Model & Assign Weights",
-        "View Results"
+        "Results"
     ]
     current_step = st.session_state.step
 
-    st.sidebar.title("📖 Instructions")
+    st.sidebar.title("📖 Navigation")
 
     for i, title in enumerate(step_titles, 1):
         if i == current_step:
@@ -617,7 +617,7 @@ elif st.session_state.step == 4:
 # Step 5: Display Results
 elif st.session_state.step == 5:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 5: View Results")
+    st.subheader("Step 5: Results")
 
     selected_model = st.session_state.selected_model
     normalized_weights = st.session_state.normalized_weights
