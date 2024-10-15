@@ -51,11 +51,13 @@ def next_step():
         st.warning("⚠️ Please upload a CSV file before proceeding.")
     elif st.session_state.step < 5:
         st.session_state.step += 1
+        st.experimental_rerun()  # Force rerun
 
 # Function to go back to the previous step
 def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
+        st.experimental_rerun()  # Force rerun
 
 # Define functions to set the selected model
 def select_linear_regression():
@@ -377,6 +379,7 @@ def run_selected_model():
 
     # Advance to Step 5
     st.session_state.step = 5
+    st.experimental_rerun()  # Force rerun
 
 def render_sidebar():
     """
@@ -473,159 +476,173 @@ elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 2: Confirm Target Variable")
 
-    # Display the selected target variable
-    target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
-    st.session_state.target_column = target_column  # Ensure it's set
+    if 'df' not in st.session_state or st.session_state.df is None:
+        st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
+    else:
+        # Display the selected target variable
+        target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
+        st.session_state.target_column = target_column  # Ensure it's set
 
-    st.markdown(f"**Selected Target Variable:** `{target_column}`")
+        st.markdown(f"**Selected Target Variable:** `{target_column}`")
 
-    # Add descriptive text guiding to next steps
-    st.write("""
-        In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
-        This guided process ensures that you choose the most relevant features for accurate predictions.
-    """)
+        # Add descriptive text guiding to next steps
+        st.write("""
+            In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
+            This guided process ensures that you choose the most relevant features for accurate predictions.
+        """)
 
 # Step 3: Select Independent Variables
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
-    df = st.session_state.df
-    target_column = st.session_state.target_column
-    st.subheader("Step 3: Select Independent Variables")
-
-    # Exclude target and identifier columns from features
-    identifier_columns = ['acct_numb', 'acct_name']
-    possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
-
-    # Multiselect for feature selection with a unique key
-    selected_features = st.multiselect(
-        "Choose your independent variables (features):",
-        options=possible_features,
-        default=possible_features[:3],  # Default selection
-        help="Select one or more features to include in the model.",
-        key='feature_selection'
-    )
-
-    if selected_features:
-        st.session_state.selected_features = selected_features
+    if 'df' not in st.session_state or st.session_state.df is None:
+        st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
+    elif 'target_column' not in st.session_state or st.session_state.target_column is None:
+        st.warning("⚠️ Target variable not set. Please go back to Step 2.")
     else:
-        st.warning("⚠️ Please select at least one independent variable.")
+        df = st.session_state.df
+        target_column = st.session_state.target_column
+        st.subheader("Step 3: Select Independent Variables")
+
+        # Exclude target and identifier columns from features
+        identifier_columns = ['acct_numb', 'acct_name']
+        possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
+
+        # Multiselect for feature selection with a unique key
+        selected_features = st.multiselect(
+            "Choose your independent variables (features):",
+            options=possible_features,
+            default=possible_features[:3],  # Default selection
+            help="Select one or more features to include in the model.",
+            key='feature_selection'
+        )
+
+        if selected_features:
+            st.session_state.selected_features = selected_features
+        else:
+            st.warning("⚠️ Please select at least one independent variable.")
 
 # Step 4: Choose Model & Assign Weights
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 4: Choose Model & Assign Weights")
-    st.write("Select the predictive model you want to run based on your selected features.")
-
-    df = st.session_state.df
-    target_column = st.session_state.target_column
-    selected_features = st.session_state.selected_features
-
-    # Model selection and weight assignment interface
-
-    # Model Selection Buttons in the specified order
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.button("Run Linear Regression", on_click=select_linear_regression, key='model_linear_regression')
-    with col2:
-        st.button("Run Weighted Scoring", on_click=select_weighted_scoring, key='model_weighted_scoring')
-    with col3:
-        st.button("Run Prediction Modeling", on_click=select_random_forest, key='model_prediction_modeling')
-
-    # Show description based on selected model
-    if st.session_state.selected_model:
-        if st.session_state.selected_model == 'linear_regression':
-            st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
-            st.session_state.normalized_weights = None  # Weights not needed for Linear Regression
-        else:
-            if st.session_state.selected_model == 'random_forest':
-                st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
-            elif st.session_state.selected_model == 'weighted_scoring_model':
-                st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
-
-            # Add note on top of the sliders
-            st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
-
-            # Instructions
-            st.markdown("**Assign Weights to Selected Features** 🎯")
-            st.write("""
-                Assign how important each feature is in determining the **Account Adoption Rank Order**. 
-                The weights must add up to **10**. Use the number inputs below to assign weights.
-            """)
-
-            # Initialize a dictionary to store user-assigned weights
-            feature_weights = {}
-
-            st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
-
-            # Create number inputs for each feature
-            for feature in selected_features:
-                weight = st.number_input(
-                    f"Weight for **{feature}**:",
-                    min_value=0.0,
-                    max_value=10.0,
-                    value=0.0,
-                    step=0.5,
-                    format="%.1f",
-                    key=f"weight_input_{feature}"
-                )
-                feature_weights[feature] = weight
-
-            # Calculate total weight
-            total_weight = sum(feature_weights.values())
-
-            # Display total weight with validation
-            st.markdown("---")
-            st.markdown("### 🎯 **Total Weight Assigned:**")
-
-            if total_weight < 10:
-                status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
-                color = "#FFC107"  # Yellow
-            elif total_weight > 10:
-                status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
-                color = "#DC3545"  # Red
-            else:
-                status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
-                color = "#28A745"  # Green
-
-            # Display status
-            st.markdown(
-                f"""
-                <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
-                    <h3 style="color:white; text-align:center;">{status}</h3>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-            # Progress bar
-            st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
-
-            # Normalize weights if necessary
-            if total_weight != 10:
-                st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
-                if total_weight > 0:
-                    normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
-                else:
-                    normalized_weights = feature_weights  # Avoid division by zero
-            else:
-                normalized_weights = feature_weights
-
-            # Display normalized weights
-            st.markdown("**Normalized Weights:**")
-            normalized_weights_df = pd.DataFrame({
-                'Feature': list(normalized_weights.keys()),
-                'Weight': [round(weight, 2) for weight in normalized_weights.values()]
-            })
-            st.dataframe(normalized_weights_df)
-
-            # Store normalized weights in session state
-            st.session_state.normalized_weights = normalized_weights
-
-        # Run Model Button with unique key and on_click callback
-        st.button("Run Model", on_click=run_selected_model, key='run_model')
+    if 'selected_features' not in st.session_state or not st.session_state.selected_features:
+        st.warning("⚠️ No independent variables selected. Please go back to Step 3.")
     else:
-        st.info("Please select a model to proceed.")
+        st.write("Select the predictive model you want to run based on your selected features.")
+
+        df = st.session_state.df
+        target_column = st.session_state.target_column
+        selected_features = st.session_state.selected_features
+
+        # Model selection and weight assignment interface
+
+        # Model Selection Buttons in the specified order
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.button("Run Linear Regression", on_click=select_linear_regression, key='model_linear_regression')
+        with col2:
+            st.button("Run Weighted Scoring", on_click=select_weighted_scoring, key='model_weighted_scoring')
+        with col3:
+            st.button("Run Prediction Modeling", on_click=select_random_forest, key='model_prediction_modeling')
+
+        # Show description based on selected model
+        if st.session_state.selected_model:
+            if st.session_state.selected_model == 'linear_regression':
+                st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+                st.session_state.normalized_weights = None  # Weights not needed for Linear Regression
+
+                # Run Model Button with unique key and on_click callback
+                st.button("Run Model", on_click=run_selected_model, key='run_model_linear')
+            else:
+                if st.session_state.selected_model == 'random_forest':
+                    st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
+                elif st.session_state.selected_model == 'weighted_scoring_model':
+                    st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
+
+                # Add note on top of the sliders
+                st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+
+                # Instructions
+                st.markdown("**Assign Weights to Selected Features** 🎯")
+                st.write("""
+                    Assign how important each feature is in determining the **Account Adoption Rank Order**. 
+                    The weights must add up to **10**. Use the number inputs below to assign weights.
+                """)
+
+                # Initialize a dictionary to store user-assigned weights
+                feature_weights = {}
+
+                st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
+
+                # Create number inputs for each feature
+                for feature in selected_features:
+                    weight = st.number_input(
+                        f"Weight for **{feature}**:",
+                        min_value=0.0,
+                        max_value=10.0,
+                        value=0.0,
+                        step=0.5,
+                        format="%.1f",
+                        key=f"weight_input_{feature}"
+                    )
+                    feature_weights[feature] = weight
+
+                # Calculate total weight
+                total_weight = sum(feature_weights.values())
+
+                # Display total weight with validation
+                st.markdown("---")
+                st.markdown("### 🎯 **Total Weight Assigned:**")
+
+                if total_weight < 10:
+                    status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
+                    color = "#FFC107"  # Yellow
+                elif total_weight > 10:
+                    status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
+                    color = "#DC3545"  # Red
+                else:
+                    status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
+                    color = "#28A745"  # Green
+
+                # Display status
+                st.markdown(
+                    f"""
+                    <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+                        <h3 style="color:white; text-align:center;">{status}</h3>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                # Progress bar
+                st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+
+                # Normalize weights if necessary
+                if total_weight != 10:
+                    st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+                    if total_weight > 0:
+                        normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+                    else:
+                        normalized_weights = feature_weights  # Avoid division by zero
+                else:
+                    normalized_weights = feature_weights
+
+                # Display normalized weights
+                st.markdown("**Normalized Weights:**")
+                normalized_weights_df = pd.DataFrame({
+                    'Feature': list(normalized_weights.keys()),
+                    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+                })
+                st.dataframe(normalized_weights_df)
+
+                # Store normalized weights in session state
+                st.session_state.normalized_weights = normalized_weights
+
+                # Run Model Button with unique key and on_click callback
+                st.button("Run Model", on_click=run_selected_model, key='run_model_weighted')
+        else:
+            st.info("Please select a model to proceed.")
 
 # Step 5: Display Results
 elif st.session_state.step == 5:
@@ -637,26 +654,29 @@ elif st.session_state.step == 5:
     df = st.session_state.df
     target_column = st.session_state.target_column
 
-    # Execute the selected model and display results
-    if selected_model == 'linear_regression':
-        with st.spinner("Training Linear Regression model..."):
-            run_linear_regression(st.session_state.X, st.session_state.y)
-    elif selected_model == 'random_forest':
-        with st.spinner("Running Prediction Modeling..."):
-            run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
-    elif selected_model == 'weighted_scoring_model':
-        with st.spinner("Calculating Weighted Scoring Model..."):
-            run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+    if 'X' not in st.session_state or 'y' not in st.session_state:
+        st.error("⚠️ Required data not found. Please go back and run the model again.")
     else:
-        st.error("No model selected. Please go back to Step 4 and select a model.")
+        # Execute the selected model and display results
+        if selected_model == 'linear_regression':
+            with st.spinner("Training Linear Regression model..."):
+                run_linear_regression(st.session_state.X, st.session_state.y)
+        elif selected_model == 'random_forest':
+            with st.spinner("Running Prediction Modeling..."):
+                run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
+        elif selected_model == 'weighted_scoring_model':
+            with st.spinner("Calculating Weighted Scoring Model..."):
+                run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+        else:
+            st.error("No model selected. Please go back to Step 4 and select a model.")
 
-    # Navigation buttons on Step 5
-    st.markdown("<br>", unsafe_allow_html=True)
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.button("← Back to Step 4", on_click=reset_to_step_4, key='back_to_step_4')
-    with col2:
-        st.button("🔄 Restart", on_click=reset_app, key='restart')
+        # Navigation buttons on Step 5
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            st.button("← Back to Step 4", on_click=reset_to_step_4, key='back_to_step_4')
+        with col2:
+            st.button("🔄 Restart", on_click=reset_app, key='restart')
 
 # Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 1-4)
 if st.session_state.step != 5:
@@ -688,4 +708,3 @@ if st.session_state.step != 5:
                 unsafe_allow_html=True
             )
             st.button("Next →", on_click=next_step, key='next_bottom')
-
