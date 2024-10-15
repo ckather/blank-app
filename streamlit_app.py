@@ -210,10 +210,11 @@ def run_random_forest(X, y, normalized_weights):
     for col in X.columns:
         X[col] = X[col].replace([np.inf, -np.inf], np.nan)
     X = X.dropna()
+    y = y.loc[X.index]  # Align y with X after dropping rows
 
     # Split the data into training and testing sets
     test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y.loc[X.index], test_size=test_size/100, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
 
     st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
 
@@ -386,7 +387,7 @@ def render_sidebar():
         "Confirm Target Variable",
         "Select Independent Variables",
         "Choose Model & Assign Weights",
-        "Results"
+        "Your Results"
     ]
     current_step = st.session_state.step
 
@@ -629,7 +630,7 @@ elif st.session_state.step == 4:
 # Step 5: Display Results
 elif st.session_state.step == 5:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 5: Results")
+    st.subheader("Step 5: Your Results")
 
     selected_model = st.session_state.selected_model
     normalized_weights = st.session_state.normalized_weights
@@ -687,3 +688,4 @@ if st.session_state.step != 5:
                 unsafe_allow_html=True
             )
             st.button("Next →", on_click=next_step, key='next_bottom')
+
