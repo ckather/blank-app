@@ -38,12 +38,12 @@ def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.step = 1
-    st.experimental_rerun()
+    # No need to call st.experimental_rerun()
 
 # Function to reset to Step 4 to allow running another model
 def reset_to_step_4():
     st.session_state.step = 4
-    st.experimental_rerun()
+    # No need to call st.experimental_rerun()
 
 # Function to advance to the next step
 def next_step():
@@ -51,13 +51,13 @@ def next_step():
         st.warning("⚠️ Please upload a CSV file before proceeding.")
     elif st.session_state.step < 5:
         st.session_state.step += 1
-        st.experimental_rerun()  # Force rerun
+        # No need to call st.experimental_rerun()
 
 # Function to go back to the previous step
 def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
-        st.experimental_rerun()  # Force rerun
+        # No need to call st.experimental_rerun()
 
 # Define functions to set the selected model
 def select_linear_regression():
@@ -379,7 +379,7 @@ def run_selected_model():
 
     # Advance to Step 5
     st.session_state.step = 5
-    st.experimental_rerun()  # Force rerun
+    # No need to call st.experimental_rerun()
 
 def render_sidebar():
     """
