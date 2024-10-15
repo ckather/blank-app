@@ -241,10 +241,28 @@ def run_linear_regression(X, y):
         - Systematic deviations may indicate issues with the model.
     """)
 
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y,
+        'Predicted': predictions,
+        'Residual': y - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
+
 def run_random_forest(X, y, normalized_weights):
     """
     Trains and evaluates a Random Forest Regressor.
     """
+    st.subheader("🤖 Prediction Modeling Results")
+
     # Apply feature weights before training
     if normalized_weights:
         for feature, weight in normalized_weights.items():
@@ -268,7 +286,6 @@ def run_random_forest(X, y, normalized_weights):
     predictions = model.predict(X_test)
     mse = mean_squared_error(y_test, predictions)
 
-    st.subheader("🤖 Prediction Modeling Results")
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
 
     # Plot Feature Importance
@@ -286,7 +303,7 @@ def run_random_forest(X, y, normalized_weights):
         x=y_test,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs Predicted'
+        title='Actual vs Predicted Account Adoption Rank Order'
     )
     fig2.add_shape(
         type="line",
@@ -311,6 +328,33 @@ def run_random_forest(X, y, normalized_weights):
     The model has analyzed your data and provided predictions based on the selected features and their importance.
     Use these insights to guide your strategic planning and decision-making processes.
     """)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y_test,
+        'Predicted': predictions,
+        'Residual': y_test - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='prediction_modeling_results.csv',
+        mime='text/csv'
+    )
+
+    # Download feature importances
+    feature_importances_df = feature_importances.reset_index()
+    feature_importances_df.columns = ['Feature', 'Importance']
+    download_importances = feature_importances_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Feature Importances as CSV",
+        data=download_importances,
+        file_name='feature_importances.csv',
+        mime='text/csv'
+    )
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
@@ -382,6 +426,18 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     # Correlation with target
     correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
     st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='weighted_scoring_model_results.csv',
+        mime='text/csv'
+    )
 
 def run_selected_model():
     """
