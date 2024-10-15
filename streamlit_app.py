@@ -38,12 +38,10 @@ def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.step = 1
-    # No need to call st.experimental_rerun()
 
 # Function to reset to Step 4 to allow running another model
 def reset_to_step_4():
     st.session_state.step = 4
-    # No need to call st.experimental_rerun()
 
 # Function to advance to the next step
 def next_step():
@@ -51,13 +49,11 @@ def next_step():
         st.warning("⚠️ Please upload a CSV file before proceeding.")
     elif st.session_state.step < 5:
         st.session_state.step += 1
-        # No need to call st.experimental_rerun()
 
 # Function to go back to the previous step
 def prev_step():
     if st.session_state.step > 1:
         st.session_state.step -= 1
-        # No need to call st.experimental_rerun()
 
 # Define functions to set the selected model
 def select_linear_regression():
@@ -154,6 +150,7 @@ def run_linear_regression(X, y):
     model = sm.OLS(y, X).fit()
     predictions = model.predict(X)
 
+    # Display regression summary
     st.write("**Regression Summary:**")
     st.text(model.summary())
 
@@ -178,7 +175,7 @@ def run_linear_regression(X, y):
         x=y,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs Predicted'
+        title='Actual vs. Predicted Account Adoption Rank Order'
     )
     fig.add_shape(
         type="line",
@@ -194,8 +191,54 @@ def run_linear_regression(X, y):
     st.markdown("### 🔍 **Interpretation of Results:**")
     st.markdown(f"""
     - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
     - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
+
+    # Highlight key areas in the regression output
+    st.markdown("### 📊 **Key Areas in Regression Output Explained**")
+
+    st.write("""
+    **1. Dependent Variable:**
+    - The variable you're trying to predict, e.g., `Account Adoption Rank Order`.
+
+    **2. R-squared and Adjusted R-squared:**
+    - **R-squared:** Measures how well the independent variables explain the variability of the dependent variable.
+    - **Adjusted R-squared:** Adjusted for the number of predictors; more reliable when comparing models.
+
+    **3. F-statistic and Prob (F-statistic):**
+    - Tests the overall significance of the model.
+
+    **4. Coefficients Table:**
+    - **const (Constant Term):** Represents the expected value of the dependent variable when all independent variables are zero.
+    - **Coefficients of Independent Variables:** Indicates the change in the dependent variable for a one-unit change in the predictor, holding other variables constant.
+    - **P-Values:** Indicates the statistical significance of each predictor.
+
+    **5. Standard Error:**
+    - Reflects the variability of the coefficient estimate.
+
+    **6. t-statistic and P>|t|:**
+    - Used to determine the statistical significance of each coefficient.
+
+    **7. Confidence Intervals:**
+    - Range within which the true population parameter is expected to lie with a certain level of confidence (usually 95%).
+
+    **8. Diagnostic Tests:**
+    - **Durbin-Watson:** Tests for autocorrelation in residuals.
+    - **Omnibus and Prob(Omnibus):** Tests for normality of residuals.
+    """)
+
+    # Graph Explanation
+    st.markdown("### 📈 **Graph Explanation:**")
+    st.write("""
+    The scatter plot compares the actual `Account Adoption Rank Order` values with the predicted values from the model.
+
+    - **Diagonal Line (Red Dashed Line):** Represents perfect predictions where actual values equal predicted values.
+    - **Data Points:** Each point represents an observation from your dataset.
+    - **Interpretation:**
+        - Points close to the diagonal line indicate accurate predictions.
+        - A tight clustering around the line suggests a good model fit.
+        - Systematic deviations may indicate issues with the model.
     """)
 
 def run_random_forest(X, y, normalized_weights):
@@ -379,7 +422,6 @@ def run_selected_model():
 
     # Advance to Step 5
     st.session_state.step = 5
-    # No need to call st.experimental_rerun()
 
 def render_sidebar():
     """
