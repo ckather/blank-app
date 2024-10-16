@@ -252,6 +252,9 @@ if st.session_state.step == 0:
     Ready to dive in? Click **Next** to get started!
     """)
 
+# Continue to Part 2 below.
+# Continue from previous code
+
 # Step 1: Upload CSV and Download Template
 elif st.session_state.step == 1:
     st.title("💊 Behavior Prediction Platform 💊")
@@ -381,6 +384,10 @@ elif st.session_state.step == 3:
         if st.session_state.selected_model:
             if st.session_state.selected_model == 'linear_regression':
                 st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
+
+                # Display selected independent variables
+                st.markdown("**Selected Independent Variables:**")
+                st.write(", ".join(selected_features))
 
                 # Display dependent variable selection
                 st.markdown("""
@@ -628,52 +635,6 @@ def run_linear_regression(X, y):
     - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
     """)
 
-    # Highlight key areas in the regression output
-    st.markdown("### 📊 **Key Areas in Regression Output Explained**")
-
-    st.write(f"""
-    **1. Dependent Variable:**
-    - The variable you're trying to predict, e.g., `{y.name}`.
-
-    **2. R-squared and Adjusted R-squared:**
-    - **R-squared:** Measures how well the independent variables explain the variability of the dependent variable.
-    - **Adjusted R-squared:** Adjusted for the number of predictors; more reliable when comparing models.
-
-    **3. F-statistic and Prob (F-statistic):**
-    - Tests the overall significance of the model.
-
-    **4. Coefficients Table:**
-    - **const (Constant Term):** Represents the expected value of the dependent variable when all independent variables are zero.
-    - **Coefficients of Independent Variables:** Indicates the change in the dependent variable for a one-unit change in the predictor, holding other variables constant.
-    - **P-Values:** Indicates the statistical significance of each predictor.
-
-    **5. Standard Error:**
-    - Reflects the variability of the coefficient estimate.
-
-    **6. t-statistic and P>|t|:**
-    - Used to determine the statistical significance of each coefficient.
-
-    **7. Confidence Intervals:**
-    - Range within which the true population parameter is expected to lie with a certain level of confidence (usually 95%).
-
-    **8. Diagnostic Tests:**
-    - **Durbin-Watson:** Tests for autocorrelation in residuals.
-    - **Omnibus and Prob(Omnibus):** Tests for normality of residuals.
-    """)
-
-    # Graph Explanation
-    st.markdown("### 📈 **Graph Explanation:**")
-    st.write(f"""
-    The scatter plot compares the actual `{y.name}` values with the predicted values from the model.
-
-    - **Diagonal Line (Red Dashed Line):** Represents perfect predictions where actual values equal predicted values.
-    - **Data Points:** Each point represents an observation from your dataset.
-    - **Interpretation:**
-        - Points close to the diagonal line indicate accurate predictions.
-        - A tight clustering around the line suggests a good model fit.
-        - Systematic deviations may indicate issues with the model.
-    """)
-
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
     # Prepare data for download
@@ -748,20 +709,6 @@ def run_random_forest(X, y, normalized_weights):
     )
     st.plotly_chart(fig2)
 
-    # General explanation about prediction modeling
-    st.markdown("### 📚 **Understanding Prediction Modeling**")
-    st.write("""
-    Prediction modeling involves using statistical techniques to predict future outcomes based on historical data.
-    It helps in identifying patterns and making informed decisions.
-
-    - **When to Use:** Ideal for forecasting and making predictions when you have sufficient historical data.
-    - **Advantages:** Can handle complex relationships and interactions between variables.
-    - **Considerations:** Requires careful feature selection and tuning to avoid overfitting.
-
-    The model has analyzed your data and provided predictions based on the selected features and their importance.
-    Use these insights to guide your strategic planning and decision-making processes.
-    """)
-
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
     # Prepare data for download
@@ -778,38 +725,11 @@ def run_random_forest(X, y, normalized_weights):
         mime='text/csv'
     )
 
-    # Download feature importances
-    feature_importances_df = feature_importances.reset_index()
-    feature_importances_df.columns = ['Feature', 'Importance']
-    download_importances = feature_importances_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Feature Importances as CSV",
-        data=download_importances,
-        file_name='feature_importances.csv',
-        mime='text/csv'
-    )
-
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
     Calculates and evaluates a Weighted Scoring Model and displays the results.
     """
     st.subheader("⚖️ Weighted Scoring Model Results")
-
-    # Explanation of the ranking scores
-    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
-    st.write("""
-    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
-    This score reflects the account's potential based on the criteria you set.
-
-    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
-    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
-    - **Adopter Categories** are assigned based on the rankings:
-        - 🚀 **Early Adopter:** Top third of accounts.
-        - ⏳ **Middle Adopter:** Middle third of accounts.
-        - 🐢 **Late Adopter:** Bottom third of accounts.
-
-    Use this information to prioritize accounts and tailor your strategies accordingly.
-    """)
 
     # Encode categorical features
     df_encoded = encode_categorical_features(df.copy(), mappings)
@@ -855,10 +775,6 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         - **{target_column}:** {row[target_column]}
         """)
         st.markdown("---")
-
-    # Correlation with target
-    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
-    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
 
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
