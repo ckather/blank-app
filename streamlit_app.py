@@ -33,20 +33,43 @@ if 'selected_model' not in st.session_state:
 if 'normalized_weights' not in st.session_state:
     st.session_state.normalized_weights = None  # Normalized weights
 
+if 'dependent_variable_needed' not in st.session_state:
+    st.session_state.dependent_variable_needed = False  # Flag for dependent variable selection
+
 # Function to reset the app to Step 1
 def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.session_state.step = 1
 
-# Function to reset to Step 4 to allow running another model
-def reset_to_step_4():
-    st.session_state.step = 4
+# Function to reset to Step 3 to allow running another model
+def reset_to_step_3():
+    st.session_state.step = 3
 
 # Function to advance to the next step
 def next_step():
     if st.session_state.step == 1 and st.session_state.df is None:
         st.warning("⚠️ Please upload a CSV file before proceeding.")
+    elif st.session_state.step == 3:
+        if st.session_state.selected_model is None:
+            st.warning("⚠️ Please select a model before proceeding.")
+        else:
+            if st.session_state.selected_model == 'linear_regression':
+                st.session_state.dependent_variable_needed = True
+                st.session_state.step = 4
+            else:
+                # Preprocess data and proceed to results
+                preprocess_data()
+                st.session_state.step = 5
+    elif st.session_state.step == 4:
+        if st.session_state.dependent_variable_needed:
+            if 'target_column' not in st.session_state or st.session_state.target_column is None:
+                st.warning("⚠️ Please select a dependent variable before proceeding.")
+            else:
+                preprocess_data_with_target()
+                st.session_state.step = 5
+        else:
+            st.session_state.step = 5
     elif st.session_state.step < 5:
         st.session_state.step += 1
 
@@ -131,327 +154,10 @@ def generate_account_adoption_rank(df):
 
     return df
 
-def run_linear_regression(X, y):
-    """
-    Trains and evaluates a Linear Regression model using statsmodels.
-    """
-    st.subheader("📈 Linear Regression Results")
-
-    # Convert data to numeric, drop rows with NaN values
-    X = X.apply(pd.to_numeric, errors='coerce')
-    y = pd.to_numeric(y, errors='coerce')
-    data = pd.concat([X, y], axis=1).dropna()
-    X = data.drop(y.name, axis=1)
-    y = data[y.name]
-
-    # Add constant term for intercept
-    X = sm.add_constant(X)
-
-    model = sm.OLS(y, X).fit()
-    predictions = model.predict(X)
-
-    # Display regression summary
-    st.write("**Regression Summary:**")
-    st.text(model.summary())
-
-    # Extract R-squared
-    r_squared = model.rsquared
-
-    # Create DataFrame for coefficients
-    coef_df = pd.DataFrame({
-        'Variable': model.params.index,
-        'Coefficient': model.params.values,
-        'Std. Error': model.bse.values,
-        'P-Value': model.pvalues.values
-    })
-
-    st.write("**Coefficients:**")
-    st.dataframe(coef_df)
-
-    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
-
-    # Plot Actual vs Predicted
-    fig = px.scatter(
-        x=y,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs. Predicted {y.name}'
-    )
-    fig.add_shape(
-        type="line",
-        x0=y.min(),
-        y0=y.min(),
-        x1=y.max(),
-        y1=y.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig)
-
-    # Interpretation in layman's terms
-    st.markdown("### 🔍 **Interpretation of Results:**")
-    st.markdown(f"""
-    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
-    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
-    """)
-
-    # Highlight key areas in the regression output
-    st.markdown("### 📊 **Key Areas in Regression Output Explained**")
-
-    st.write(f"""
-    **1. Dependent Variable:**
-    - The variable you're trying to predict, e.g., `{y.name}`.
-
-    **2. R-squared and Adjusted R-squared:**
-    - **R-squared:** Measures how well the independent variables explain the variability of the dependent variable.
-    - **Adjusted R-squared:** Adjusted for the number of predictors; more reliable when comparing models.
-
-    **3. F-statistic and Prob (F-statistic):**
-    - Tests the overall significance of the model.
-
-    **4. Coefficients Table:**
-    - **const (Constant Term):** Represents the expected value of the dependent variable when all independent variables are zero.
-    - **Coefficients of Independent Variables:** Indicates the change in the dependent variable for a one-unit change in the predictor, holding other variables constant.
-    - **P-Values:** Indicates the statistical significance of each predictor.
-
-    **5. Standard Error:**
-    - Reflects the variability of the coefficient estimate.
-
-    **6. t-statistic and P>|t|:**
-    - Used to determine the statistical significance of each coefficient.
-
-    **7. Confidence Intervals:**
-    - Range within which the true population parameter is expected to lie with a certain level of confidence (usually 95%).
-
-    **8. Diagnostic Tests:**
-    - **Durbin-Watson:** Tests for autocorrelation in residuals.
-    - **Omnibus and Prob(Omnibus):** Tests for normality of residuals.
-    """)
-
-    # Graph Explanation
-    st.markdown("### 📈 **Graph Explanation:**")
-    st.write(f"""
-    The scatter plot compares the actual `{y.name}` values with the predicted values from the model.
-
-    - **Diagonal Line (Red Dashed Line):** Represents perfect predictions where actual values equal predicted values.
-    - **Data Points:** Each point represents an observation from your dataset.
-    - **Interpretation:**
-        - Points close to the diagonal line indicate accurate predictions.
-        - A tight clustering around the line suggests a good model fit.
-        - Systematic deviations may indicate issues with the model.
-    """)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y,
-        'Predicted': predictions,
-        'Residual': y - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='linear_regression_results.csv',
-        mime='text/csv'
-    )
-
-def run_random_forest(X, y, normalized_weights):
-    """
-    Trains and evaluates a Random Forest Regressor.
-    """
-    st.subheader("🤖 Prediction Modeling Results")
-
-    # Apply feature weights before training
-    if normalized_weights:
-        for feature, weight in normalized_weights.items():
-            if feature in X.columns:
-                X[feature] *= weight
-
-    # Handle infinite values
-    for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
-    X = X.dropna()
-    y = y.loc[X.index]  # Align y with X after dropping rows
-
-    # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
-
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
-
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-
-    # Plot Feature Importance
-    importances = model.feature_importances_
-    feature_names = X_train.columns
-    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax)
-    ax.set_title("Feature Importances")
-    st.pyplot(fig)
-
-    # Plot Actual vs Predicted
-    fig2 = px.scatter(
-        x=y_test,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs Predicted {y.name}'
-    )
-    fig2.add_shape(
-        type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig2)
-
-    # General explanation about prediction modeling
-    st.markdown("### 📚 **Understanding Prediction Modeling**")
-    st.write("""
-    Prediction modeling involves using statistical techniques to predict future outcomes based on historical data.
-    It helps in identifying patterns and making informed decisions.
-
-    - **When to Use:** Ideal for forecasting and making predictions when you have sufficient historical data.
-    - **Advantages:** Can handle complex relationships and interactions between variables.
-    - **Considerations:** Requires careful feature selection and tuning to avoid overfitting.
-
-    The model has analyzed your data and provided predictions based on the selected features and their importance.
-    Use these insights to guide your strategic planning and decision-making processes.
-    """)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y_test,
-        'Predicted': predictions,
-        'Residual': y_test - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='prediction_modeling_results.csv',
-        mime='text/csv'
-    )
-
-    # Download feature importances
-    feature_importances_df = feature_importances.reset_index()
-    feature_importances_df.columns = ['Feature', 'Importance']
-    download_importances = feature_importances_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Feature Importances as CSV",
-        data=download_importances,
-        file_name='feature_importances.csv',
-        mime='text/csv'
-    )
-
-def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
-    """
-    Calculates and evaluates a Weighted Scoring Model and displays the results.
-    """
-    st.subheader("⚖️ Weighted Scoring Model Results")
-
-    # Explanation of the ranking scores
-    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
-    st.write("""
-    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
-    This score reflects the account's potential based on the criteria you set.
-
-    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
-    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
-    - **Adopter Categories** are assigned based on the rankings:
-        - 🚀 **Early Adopter:** Top third of accounts.
-        - ⏳ **Middle Adopter:** Middle third of accounts.
-        - 🐢 **Late Adopter:** Bottom third of accounts.
-
-    Use this information to prioritize accounts and tailor your strategies accordingly.
-    """)
-
-    # Encode categorical features
-    df_encoded = encode_categorical_features(df.copy(), mappings)
-
-    # Calculate weighted score based on normalized weights
-    df_encoded['Weighted_Score'] = 0
-    for feature, weight in normalized_weights.items():
-        if feature in df_encoded.columns:
-            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
-                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
-            else:
-                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
-        else:
-            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
-
-    # Rank the accounts based on Weighted_Score
-    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
-
-    # Divide the accounts into three groups
-    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
-
-    # Mapping adopter categories to emojis
-    adopter_emojis = {
-        'Early Adopter': '🚀',
-        'Middle Adopter': '⏳',
-        'Late Adopter': '🐢'
-    }
-
-    # Display the leaderboard
-    st.markdown("### 🏆 **Leaderboard of Accounts**")
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
-
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
-
-    # Display accounts with emojis
-    for idx, row in top_accounts.iterrows():
-        emoji = adopter_emojis.get(row['Adopter_Category'], '')
-        st.markdown(f"""
-        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
-        - **Account Number:** {row['acct_numb']}  
-        - **Weighted Score:** {row['Weighted_Score']:.2f}  
-        - **Adopter Category:** {row['Adopter_Category']}  
-        - **{target_column}:** {row[target_column]}
-        """)
-        st.markdown("---")
-
-    # Correlation with target
-    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
-    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='weighted_scoring_model_results.csv',
-        mime='text/csv'
-    )
-
-def run_selected_model():
-    """
-    Executes the selected model based on user input and advances to Step 5.
-    """
+def preprocess_data():
     df = st.session_state.df
-    target_column = st.session_state.target_column
     selected_features = st.session_state.selected_features
-    selected_model = st.session_state.selected_model
-    normalized_weights = st.session_state.normalized_weights
-
-    # Preprocess data
     X = df[selected_features].copy()
-    y = df[target_column]
 
     # Handle categorical variables using one-hot encoding
     selected_categorical = [col for col in selected_features if df[col].dtype == 'object']
@@ -470,40 +176,60 @@ def run_selected_model():
         X[col] = X[col].replace([np.inf, -np.inf], np.nan)
 
     X = X.dropna()
-    y = y.loc[X.index]  # Align y with X after dropping rows
-
     # Store preprocessed data in session state for use in Step 5
     st.session_state.X = X
+
+def preprocess_data_with_target():
+    df = st.session_state.df
+    target_column = st.session_state.target_column
+    X = st.session_state.X
+    y = df[target_column]
+
+    y = pd.to_numeric(y, errors='coerce')
+    y = y.loc[X.index]  # Align y with X after preprocessing
     st.session_state.y = y
 
-    # Advance to Step 5
-    st.session_state.step = 5
+def run_selected_model():
+    """
+    Executes the selected model based on user input and advances to the next step.
+    """
+    selected_model = st.session_state.selected_model
+
+    if selected_model == 'linear_regression':
+        st.session_state.dependent_variable_needed = True
+        st.session_state.step = 4  # Proceed to dependent variable selection
+    else:
+        st.session_state.dependent_variable_needed = False
+        # Prepare data and proceed to results
+        preprocess_data()
+        st.session_state.step = 5  # Proceed to results
 
 def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
     """
-    step_titles = [
+    base_steps = [
         "Upload CSV File",
-        "Select Dependent Variable",
         "Select Independent Variables",
         "Choose Model & Assign Weights",
         "Your Results"
     ]
+
+    if st.session_state.selected_model == 'linear_regression':
+        step_titles = base_steps[:3] + ["Choose Dependent Variable", "Your Results"]
+    else:
+        step_titles = base_steps
+
     current_step = st.session_state.step
 
     st.sidebar.title("📖 Navigation")
 
     for i, title in enumerate(step_titles, 1):
-        # All steps are displayed from the beginning
         if i == current_step:
-            # Highlight current step with green checkmark
             st.sidebar.markdown(f"### ✅ **Step {i}: {title}**")
         elif i < current_step:
-            # Completed steps with green checkmark
             st.sidebar.markdown(f"### ✅ Step {i}: {title}")
         else:
-            # Upcoming steps
             st.sidebar.markdown(f"### Step {i}: {title}")
 
 # Render the sidebar with step highlighting
@@ -569,63 +295,28 @@ if st.session_state.step == 1:
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Select Dependent Variable
+# Step 2: Select Independent Variables
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 2: Select Your Dependent Variable")
-
     if 'df' not in st.session_state or st.session_state.df is None:
         st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
     else:
         df = st.session_state.df
+        st.subheader("Step 2: Select Independent Variables")
 
-        # Provide a lay-level definition of the dependent variable
+        # Provide a lay-level explanation of independent variables
         st.markdown("""
-        **What is a Dependent Variable?**
+        **What are Independent Variables?**
 
-        The dependent variable, also known as the target variable, is the main factor you're trying to understand or predict.
-        It's called 'dependent' because its value depends on other variables in your data.
+        Independent variables, also known as predictors or features, are the factors that you believe might influence or predict the outcome you're interested in.
+        These variables are used by the model to make predictions or understand relationships.
 
-        For example, if you want to predict sales based on advertising spend, sales would be the dependent variable.
+        For example, if you're trying to predict sales, independent variables might include advertising spend, number of salespeople, or market conditions.
         """)
 
-        # Exclude identifier columns from selection
+        # Exclude identifier columns from features
         identifier_columns = ['acct_numb', 'acct_name']
-        possible_targets = [col for col in df.columns if col not in identifier_columns]
-
-        # Dropdown for selecting the dependent variable
-        target_column = st.selectbox(
-            "Choose your dependent variable (the variable you want to predict):",
-            options=possible_targets,
-            help="Select one variable that you want to understand or predict.",
-            key='target_variable_selection'
-        )
-
-        if target_column:
-            st.session_state.target_column = target_column
-            st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
-
-        # Add descriptive text guiding to next steps
-        st.write("""
-            In the next step, you will select the independent variables that will be used to predict the dependent variable.
-            This guided process ensures that you choose the most relevant features for accurate predictions.
-        """)
-
-# Step 3: Select Independent Variables
-elif st.session_state.step == 3:
-    st.title("💊 Behavior Prediction Platform 💊")
-    if 'df' not in st.session_state or st.session_state.df is None:
-        st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
-    elif 'target_column' not in st.session_state or st.session_state.target_column is None:
-        st.warning("⚠️ Dependent variable not set. Please go back to Step 2.")
-    else:
-        df = st.session_state.df
-        target_column = st.session_state.target_column
-        st.subheader("Step 3: Select Independent Variables")
-
-        # Exclude target and identifier columns from features
-        identifier_columns = ['acct_numb', 'acct_name']
-        possible_features = [col for col in df.columns if col not in [target_column] + identifier_columns]
+        possible_features = [col for col in df.columns if col not in identifier_columns]
 
         # Multiselect for feature selection with a unique key
         selected_features = st.multiselect(
@@ -638,20 +329,20 @@ elif st.session_state.step == 3:
 
         if selected_features:
             st.session_state.selected_features = selected_features
+            st.success(f"✅ You have selected {len(selected_features)} independent variables.")
         else:
             st.warning("⚠️ Please select at least one independent variable.")
 
-# Step 4: Choose Model & Assign Weights
-elif st.session_state.step == 4:
+# Step 3: Choose Model & Assign Weights
+elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 4: Choose Model & Assign Weights")
+    st.subheader("Step 3: Choose Model & Assign Weights")
     if 'selected_features' not in st.session_state or not st.session_state.selected_features:
-        st.warning("⚠️ No independent variables selected. Please go back to Step 3.")
+        st.warning("⚠️ No independent variables selected. Please go back to Step 2.")
     else:
         st.write("Select the predictive model you want to run based on your selected features.")
 
         df = st.session_state.df
-        target_column = st.session_state.target_column
         selected_features = st.session_state.selected_features
 
         # Model selection and weight assignment interface
@@ -669,11 +360,11 @@ elif st.session_state.step == 4:
         # Show description based on selected model
         if st.session_state.selected_model:
             if st.session_state.selected_model == 'linear_regression':
-                st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships. Note: Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+                st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
                 st.session_state.normalized_weights = None  # Weights not needed for Linear Regression
 
                 # Run Model Button with unique key and on_click callback
-                st.button("Run Model", on_click=run_selected_model, key='run_model_linear')
+                st.button("Next →", on_click=run_selected_model, key='run_model_linear')
             else:
                 if st.session_state.selected_model == 'random_forest':
                     st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
@@ -686,7 +377,7 @@ elif st.session_state.step == 4:
                 # Instructions
                 st.markdown("**Assign Weights to Selected Features** 🎯")
                 st.write("""
-                    Assign how important each feature is in determining the dependent variable.
+                    Assign how important each feature is in determining the outcome.
                     The weights must add up to **10**. Use the number inputs below to assign weights.
                 """)
 
@@ -760,9 +451,53 @@ elif st.session_state.step == 4:
                 st.session_state.normalized_weights = normalized_weights
 
                 # Run Model Button with unique key and on_click callback
-                st.button("Run Model", on_click=run_selected_model, key='run_model_weighted')
+                st.button("Next →", on_click=run_selected_model, key='run_model_weighted')
         else:
             st.info("Please select a model to proceed.")
+
+# Step 4: Choose Dependent Variable (Only for Linear Regression)
+elif st.session_state.step == 4:
+    if st.session_state.dependent_variable_needed:
+        st.title("💊 Behavior Prediction Platform 💊")
+        st.subheader("Step 4: Choose Your Dependent Variable")
+
+        df = st.session_state.df
+
+        # Provide a lay-level definition of the dependent variable
+        st.markdown("""
+        **What is a Dependent Variable?**
+
+        The dependent variable, also known as the target variable, is the main factor you're trying to understand or predict.
+        It's called 'dependent' because its value depends on other variables in your data.
+
+        For example, if you want to predict sales based on advertising spend, sales would be the dependent variable.
+        """)
+
+        # Exclude identifier columns and selected features from selection
+        identifier_columns = ['acct_numb', 'acct_name']
+        possible_targets = [col for col in df.columns if col not in identifier_columns + st.session_state.selected_features]
+
+        # Dropdown for selecting the dependent variable
+        target_column = st.selectbox(
+            "Choose your dependent variable (the variable you want to predict):",
+            options=possible_targets,
+            help="Select one variable that you want to understand or predict.",
+            key='target_variable_selection'
+        )
+
+        if target_column:
+            st.session_state.target_column = target_column
+            st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
+
+            # Now we can proceed to preprocess data with target
+            preprocess_data()
+            preprocess_data_with_target()
+
+            # Run Model Button with unique key and on_click callback
+            st.button("Next →", on_click=next_step, key='proceed_to_results')
+    else:
+        # If dependent variable is not needed, skip to results
+        st.session_state.step = 5
 
 # Step 5: Display Results
 elif st.session_state.step == 5:
@@ -772,29 +507,36 @@ elif st.session_state.step == 5:
     selected_model = st.session_state.selected_model
     normalized_weights = st.session_state.normalized_weights
     df = st.session_state.df
-    target_column = st.session_state.target_column
 
-    if 'X' not in st.session_state or 'y' not in st.session_state:
+    if 'X' not in st.session_state:
         st.error("⚠️ Required data not found. Please go back and run the model again.")
     else:
         # Execute the selected model and display results
         if selected_model == 'linear_regression':
-            with st.spinner("Training Linear Regression model..."):
-                run_linear_regression(st.session_state.X, st.session_state.y)
+            if 'y' not in st.session_state:
+                st.error("⚠️ Dependent variable not found. Please go back and select your dependent variable.")
+            else:
+                with st.spinner("Training Linear Regression model..."):
+                    run_linear_regression(st.session_state.X, st.session_state.y)
         elif selected_model == 'random_forest':
+            if 'target_column' in st.session_state and st.session_state.target_column:
+                st.session_state.y = df[st.session_state.target_column]
+            else:
+                st.session_state.y = df['Account Adoption Rank Order']  # Default target variable
+
             with st.spinner("Running Prediction Modeling..."):
                 run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
         elif selected_model == 'weighted_scoring_model':
             with st.spinner("Calculating Weighted Scoring Model..."):
-                run_weighted_scoring_model(df, normalized_weights, target_column, categorical_mappings)
+                run_weighted_scoring_model(df, normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
         else:
-            st.error("No model selected. Please go back to Step 4 and select a model.")
+            st.error("No model selected. Please go back to Step 3 and select a model.")
 
         # Navigation buttons on Step 5
         st.markdown("<br>", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
-            st.button("← Back to Step 4", on_click=reset_to_step_4, key='back_to_step_4')
+            st.button("← Back to Step 3", on_click=reset_to_step_3, key='back_to_step_3')
         with col2:
             st.button("🔄 Restart", on_click=reset_app, key='restart')
 
