@@ -216,6 +216,446 @@ def render_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.button("🔄 Restart", on_click=reset_app)
 
+# Define model functions
+
+def run_linear_regression(X, y):
+    """
+    Trains and evaluates a Linear Regression model using statsmodels.
+    """
+    st.subheader("📈 Linear Regression Results")
+
+    # Convert data to numeric, drop rows with NaN values
+    X = X.apply(pd.to_numeric, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    data = pd.concat([X, y], axis=1).dropna()
+    X = data.drop(y.name, axis=1)
+    y = data[y.name]
+
+    # Add constant term for intercept
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    predictions = model.predict(X)
+
+    # Display regression summary
+    st.write("**Regression Summary:**")
+    st.text(model.summary())
+
+    # Extract R-squared
+    r_squared = model.rsquared
+
+    # Create DataFrame for coefficients
+    coef_df = pd.DataFrame({
+        'Variable': model.params.index,
+        'Coefficient': model.params.values,
+        'Std. Error': model.bse.values,
+        'P-Value': model.pvalues.values
+    })
+
+    st.write("**Coefficients:**")
+    st.dataframe(coef_df)
+
+    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
+
+    # Plot Actual vs Predicted
+    fig = px.scatter(
+        x=y,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs. Predicted {y.name}'
+    )
+    fig.add_shape(
+        type="line",
+        x0=y.min(),
+        y0=y.min(),
+        x1=y.max(),
+        y1=y.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig)
+
+    # Interpretation in layman's terms
+    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown(f"""
+    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
+    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y,
+        'Predicted': predictions,
+        'Residual': y - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
+
+def run_random_forest(X, y, normalized_weights):
+    """
+    Trains and evaluates a Random Forest Regressor.
+    """
+    st.subheader("🤖 Prediction Modeling Results")
+
+    # Apply feature weights before training
+    if normalized_weights:
+        for feature, weight in normalized_weights.items():
+            if feature in X.columns:
+                X[feature] *= weight
+
+    # Handle infinite values
+    for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+    X = X.dropna()
+    y = y.loc[X.index]  # Align y with X after dropping rows
+
+    # Split the data into training and testing sets
+    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+
+    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+
+    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+
+    # Plot Feature Importance
+    importances = model.feature_importances_
+    feature_names = X_train.columns
+    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    feature_importances.plot(kind='bar', ax=ax)
+    ax.set_title("Feature Importances")
+    st.pyplot(fig)
+
+    # Plot Actual vs Predicted
+    fig2 = px.scatter(
+        x=y_test,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs Predicted {y.name}'
+    )
+    fig2.add_shape(
+        type="line",
+        x0=y_test.min(),
+        y0=y_test.min(),
+        x1=y_test.max(),
+        y1=y_test.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig2)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y_test,
+        'Predicted': predictions,
+        'Residual': y_test - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='prediction_modeling_results.csv',
+        mime='text/csv'
+    )
+
+def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
+    """
+    Calculates and evaluates a Weighted Scoring Model and displays the results.
+    """
+    st.subheader("⚖️ Weighted Scoring Model Results")
+
+    # Encode categorical features
+    df_encoded = encode_categorical_features(df.copy(), mappings)
+
+    # Calculate weighted score based on normalized weights
+    df_encoded['Weighted_Score'] = 0
+    for feature, weight in normalized_weights.items():
+        if feature in df_encoded.columns:
+            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
+                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
+            else:
+                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
+        else:
+            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
+
+    # Rank the accounts based on Weighted_Score
+    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
+
+    # Divide the accounts into three groups
+    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+
+    # Mapping adopter categories to emojis
+    adopter_emojis = {
+        'Early Adopter': '🚀',
+        'Middle Adopter': '⏳',
+        'Late Adopter': '🐢'
+    }
+
+    # Display the leaderboard
+    st.markdown("### 🏆 **Leaderboard of Accounts**")
+    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+
+    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+
+    # Display accounts with emojis
+    for idx, row in top_accounts.iterrows():
+        emoji = adopter_emojis.get(row['Adopter_Category'], '')
+        st.markdown(f"""
+        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
+        - **Account Number:** {row['acct_numb']}  
+        - **Weighted Score:** {row['Weighted_Score']:.2f}  
+        - **Adopter Category:** {row['Adopter_Category']}  
+        - **{target_column}:** {row[target_column]}
+        """)
+        st.markdown("---")
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='weighted_scoring_model_results.csv',
+        mime='text/csv'
+    )
+# Continue from Part 1
+
+# Define model functions here (run_linear_regression, run_random_forest, run_weighted_scoring_model)
+# These functions are already defined in Part 1 above.
+
+def run_linear_regression(X, y):
+    """
+    Trains and evaluates a Linear Regression model using statsmodels.
+    """
+    st.subheader("📈 Linear Regression Results")
+
+    # Convert data to numeric, drop rows with NaN values
+    X = X.apply(pd.to_numeric, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    data = pd.concat([X, y], axis=1).dropna()
+    X = data.drop(y.name, axis=1)
+    y = data[y.name]
+
+    # Add constant term for intercept
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    predictions = model.predict(X)
+
+    # Display regression summary
+    st.write("**Regression Summary:**")
+    st.text(model.summary())
+
+    # Extract R-squared
+    r_squared = model.rsquared
+
+    # Create DataFrame for coefficients
+    coef_df = pd.DataFrame({
+        'Variable': model.params.index,
+        'Coefficient': model.params.values,
+        'Std. Error': model.bse.values,
+        'P-Value': model.pvalues.values
+    })
+
+    st.write("**Coefficients:**")
+    st.dataframe(coef_df)
+
+    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
+
+    # Plot Actual vs Predicted
+    fig = px.scatter(
+        x=y,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs. Predicted {y.name}'
+    )
+    fig.add_shape(
+        type="line",
+        x0=y.min(),
+        y0=y.min(),
+        x1=y.max(),
+        y1=y.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig)
+
+    # Interpretation in layman's terms
+    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown(f"""
+    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
+    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y,
+        'Predicted': predictions,
+        'Residual': y - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
+
+def run_random_forest(X, y, normalized_weights):
+    """
+    Trains and evaluates a Random Forest Regressor.
+    """
+    st.subheader("🤖 Prediction Modeling Results")
+
+    # Apply feature weights before training
+    if normalized_weights:
+        for feature, weight in normalized_weights.items():
+            if feature in X.columns:
+                X[feature] *= weight
+
+    # Handle infinite values
+    for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+    X = X.dropna()
+    y = y.loc[X.index]  # Align y with X after dropping rows
+
+    # Split the data into training and testing sets
+    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+
+    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+
+    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+
+    # Plot Feature Importance
+    importances = model.feature_importances_
+    feature_names = X_train.columns
+    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    feature_importances.plot(kind='bar', ax=ax)
+    ax.set_title("Feature Importances")
+    st.pyplot(fig)
+
+    # Plot Actual vs Predicted
+    fig2 = px.scatter(
+        x=y_test,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs Predicted {y.name}'
+    )
+    fig2.add_shape(
+        type="line",
+        x0=y_test.min(),
+        y0=y_test.min(),
+        x1=y_test.max(),
+        y1=y_test.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig2)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y_test,
+        'Predicted': predictions,
+        'Residual': y_test - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='prediction_modeling_results.csv',
+        mime='text/csv'
+    )
+
+def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
+    """
+    Calculates and evaluates a Weighted Scoring Model and displays the results.
+    """
+    st.subheader("⚖️ Weighted Scoring Model Results")
+
+    # Encode categorical features
+    df_encoded = encode_categorical_features(df.copy(), mappings)
+
+    # Calculate weighted score based on normalized weights
+    df_encoded['Weighted_Score'] = 0
+    for feature, weight in normalized_weights.items():
+        if feature in df_encoded.columns:
+            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
+                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
+            else:
+                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
+        else:
+            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
+
+    # Rank the accounts based on Weighted_Score
+    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
+
+    # Divide the accounts into three groups
+    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+
+    # Mapping adopter categories to emojis
+    adopter_emojis = {
+        'Early Adopter': '🚀',
+        'Middle Adopter': '⏳',
+        'Late Adopter': '🐢'
+    }
+
+    # Display the leaderboard
+    st.markdown("### 🏆 **Leaderboard of Accounts**")
+    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+
+    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+
+    # Display accounts with emojis
+    for idx, row in top_accounts.iterrows():
+        emoji = adopter_emojis.get(row['Adopter_Category'], '')
+        st.markdown(f"""
+        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
+        - **Account Number:** {row['acct_numb']}  
+        - **Weighted Score:** {row['Weighted_Score']:.2f}  
+        - **Adopter Category:** {row['Adopter_Category']}  
+        - **{target_column}:** {row[target_column]}
+        """)
+        st.markdown("---")
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='weighted_scoring_model_results.csv',
+        mime='text/csv'
+    )
+
 # Render the sidebar with step highlighting
 render_sidebar()
 
@@ -251,9 +691,6 @@ if st.session_state.step == 0:
 
     Ready to dive in? Click **Next** to get started!
     """)
-
-# Continue to Part 2 below.
-# Continue from previous code
 
 # Step 1: Upload CSV and Download Template
 elif st.session_state.step == 1:
@@ -567,223 +1004,3 @@ if st.session_state.step < 4:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
-
-# Include model functions here (run_linear_regression, run_random_forest, run_weighted_scoring_model)
-# Ensure they are defined after the main app logic
-
-def run_linear_regression(X, y):
-    """
-    Trains and evaluates a Linear Regression model using statsmodels.
-    """
-    st.subheader("📈 Linear Regression Results")
-
-    # Convert data to numeric, drop rows with NaN values
-    X = X.apply(pd.to_numeric, errors='coerce')
-    y = pd.to_numeric(y, errors='coerce')
-    data = pd.concat([X, y], axis=1).dropna()
-    X = data.drop(y.name, axis=1)
-    y = data[y.name]
-
-    # Add constant term for intercept
-    X = sm.add_constant(X)
-
-    model = sm.OLS(y, X).fit()
-    predictions = model.predict(X)
-
-    # Display regression summary
-    st.write("**Regression Summary:**")
-    st.text(model.summary())
-
-    # Extract R-squared
-    r_squared = model.rsquared
-
-    # Create DataFrame for coefficients
-    coef_df = pd.DataFrame({
-        'Variable': model.params.index,
-        'Coefficient': model.params.values,
-        'Std. Error': model.bse.values,
-        'P-Value': model.pvalues.values
-    })
-
-    st.write("**Coefficients:**")
-    st.dataframe(coef_df)
-
-    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
-
-    # Plot Actual vs Predicted
-    fig = px.scatter(
-        x=y,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs. Predicted {y.name}'
-    )
-    fig.add_shape(
-        type="line",
-        x0=y.min(),
-        y0=y.min(),
-        x1=y.max(),
-        y1=y.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig)
-
-    # Interpretation in layman's terms
-    st.markdown("### 🔍 **Interpretation of Results:**")
-    st.markdown(f"""
-    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
-    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
-    """)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y,
-        'Predicted': predictions,
-        'Residual': y - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='linear_regression_results.csv',
-        mime='text/csv'
-    )
-
-def run_random_forest(X, y, normalized_weights):
-    """
-    Trains and evaluates a Random Forest Regressor.
-    """
-    st.subheader("🤖 Prediction Modeling Results")
-
-    # Apply feature weights before training
-    if normalized_weights:
-        for feature, weight in normalized_weights.items():
-            if feature in X.columns:
-                X[feature] *= weight
-
-    # Handle infinite values
-    for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
-    X = X.dropna()
-    y = y.loc[X.index]  # Align y with X after dropping rows
-
-    # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
-
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
-
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-
-    # Plot Feature Importance
-    importances = model.feature_importances_
-    feature_names = X_train.columns
-    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax)
-    ax.set_title("Feature Importances")
-    st.pyplot(fig)
-
-    # Plot Actual vs Predicted
-    fig2 = px.scatter(
-        x=y_test,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs Predicted {y.name}'
-    )
-    fig2.add_shape(
-        type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig2)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y_test,
-        'Predicted': predictions,
-        'Residual': y_test - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='prediction_modeling_results.csv',
-        mime='text/csv'
-    )
-
-def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
-    """
-    Calculates and evaluates a Weighted Scoring Model and displays the results.
-    """
-    st.subheader("⚖️ Weighted Scoring Model Results")
-
-    # Encode categorical features
-    df_encoded = encode_categorical_features(df.copy(), mappings)
-
-    # Calculate weighted score based on normalized weights
-    df_encoded['Weighted_Score'] = 0
-    for feature, weight in normalized_weights.items():
-        if feature in df_encoded.columns:
-            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
-                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
-            else:
-                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
-        else:
-            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
-
-    # Rank the accounts based on Weighted_Score
-    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
-
-    # Divide the accounts into three groups
-    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
-
-    # Mapping adopter categories to emojis
-    adopter_emojis = {
-        'Early Adopter': '🚀',
-        'Middle Adopter': '⏳',
-        'Late Adopter': '🐢'
-    }
-
-    # Display the leaderboard
-    st.markdown("### 🏆 **Leaderboard of Accounts**")
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
-
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
-
-    # Display accounts with emojis
-    for idx, row in top_accounts.iterrows():
-        emoji = adopter_emojis.get(row['Adopter_Category'], '')
-        st.markdown(f"""
-        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
-        - **Account Number:** {row['acct_numb']}  
-        - **Weighted Score:** {row['Weighted_Score']:.2f}  
-        - **Adopter Category:** {row['Adopter_Category']}  
-        - **{target_column}:** {row[target_column]}
-        """)
-        st.markdown("---")
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='weighted_scoring_model_results.csv',
-        mime='text/csv'
-    )
