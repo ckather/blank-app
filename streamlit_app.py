@@ -16,7 +16,7 @@ st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
-    st.session_state.step = 0  # Current step: 0 to 4 (Home to Results)
+    st.session_state.step = 0  # Current step: 0 to 4 (Start Here to Results)
 
 if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
@@ -33,7 +33,7 @@ if 'selected_model' not in st.session_state:
 if 'normalized_weights' not in st.session_state:
     st.session_state.normalized_weights = None  # Normalized weights
 
-# Function to reset the app to Home
+# Function to reset the app to Start Here
 def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
@@ -177,7 +177,7 @@ def preprocess_data():
         X[col] = X[col].replace([np.inf, -np.inf], np.nan)
 
     X = X.dropna()
-    # Store preprocessed data in session state for use in Step 5
+    # Store preprocessed data in session state for use in Step 4
     st.session_state.X = X
 
 def preprocess_data_with_target():
@@ -195,11 +195,11 @@ def render_sidebar():
     Renders the instructions sidebar with step highlighting.
     """
     step_titles = [
-        "Home",
-        "Upload CSV File",
-        "Select Independent Variables",
-        "Choose Model & Assign Weights",
-        "Your Results"
+        "Start Here",
+        "Step 1: Upload CSV File",
+        "Step 2: Select Independent Variables",
+        "Step 3: Choose Model & Assign Weights",
+        "Step 4: Your Results"
     ]
 
     current_step = st.session_state.step
@@ -221,12 +221,11 @@ render_sidebar()
 
 # Main app logic based on current step
 
-# Step 0: Home Page
+# Step 0: Start Here Page
 if st.session_state.step == 0:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Welcome to the Behavior Prediction Platform!")
     st.markdown("""
-    ### 🌟 **Unlock Insights, Predict Outcomes, and Make Informed Decisions!**
+    ### **Unlock Insights, Predict Outcomes, and Make Informed Decisions!**
 
     Ever wondered how certain factors influence behavior or outcomes? Whether you're looking to predict sales, understand customer behavior, or analyze trends, our platform is here to help!
 
