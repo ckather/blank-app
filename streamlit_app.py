@@ -16,7 +16,7 @@ st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
-    st.session_state.step = 1  # Current step: 1 to 5
+    st.session_state.step = 0  # Current step: 0 to 4 (Home to Results)
 
 if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
@@ -33,11 +33,11 @@ if 'selected_model' not in st.session_state:
 if 'normalized_weights' not in st.session_state:
     st.session_state.normalized_weights = None  # Normalized weights
 
-# Function to reset the app to Step 1
+# Function to reset the app to Home
 def reset_app():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    st.session_state.step = 1
+    st.session_state.step = 0
 
 # Function to reset to Step 3 to allow running another model
 def reset_to_step_3():
@@ -45,7 +45,9 @@ def reset_to_step_3():
 
 # Function to advance to the next step
 def next_step():
-    if st.session_state.step == 1:
+    if st.session_state.step == 0:
+        st.session_state.step += 1
+    elif st.session_state.step == 1:
         if st.session_state.df is None:
             st.error("⚠️ Please upload a CSV file before proceeding.")
         else:
@@ -62,19 +64,19 @@ def next_step():
             if st.session_state.selected_model == 'linear_regression':
                 if 'target_column' not in st.session_state or st.session_state.target_column is None:
                     st.error("⚠️ Please select a dependent variable before proceeding.")
+                    return
                 else:
                     preprocess_data()
                     preprocess_data_with_target()
-                    st.session_state.step += 1
             else:
                 preprocess_data()
-                st.session_state.step += 1
+            st.session_state.step += 1
     elif st.session_state.step < 5:
         st.session_state.step += 1
 
 # Function to go back to the previous step
 def prev_step():
-    if st.session_state.step > 1:
+    if st.session_state.step > 0:
         st.session_state.step -= 1
 
 # Define functions to set the selected model
@@ -192,37 +194,67 @@ def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
     """
-    base_steps = [
+    step_titles = [
+        "Home",
         "Upload CSV File",
         "Select Independent Variables",
         "Choose Model & Assign Weights",
         "Your Results"
     ]
 
-    if st.session_state.selected_model == 'linear_regression':
-        step_titles = base_steps[:2] + ["Choose Model & Select Dependent Variable", "Your Results"]
-    else:
-        step_titles = base_steps
-
     current_step = st.session_state.step
 
     st.sidebar.title("📖 Navigation")
 
-    for i, title in enumerate(step_titles, 1):
+    for i, title in enumerate(step_titles):
         if i == current_step:
-            st.sidebar.markdown(f"### ✅ **Step {i}: {title}**")
-        elif i < current_step:
-            st.sidebar.markdown(f"### ✅ Step {i}: {title}")
+            st.sidebar.markdown(f"### ✅ **{title}**")
         else:
-            st.sidebar.markdown(f"### Step {i}: {title}")
+            st.sidebar.markdown(f"### {title}")
+
+    # Restart button in the sidebar
+    st.sidebar.markdown("---")
+    st.sidebar.button("🔄 Restart", on_click=reset_app)
 
 # Render the sidebar with step highlighting
 render_sidebar()
 
 # Main app logic based on current step
 
+# Step 0: Home Page
+if st.session_state.step == 0:
+    st.title("💊 Behavior Prediction Platform 💊")
+    st.subheader("Welcome to the Behavior Prediction Platform!")
+    st.markdown("""
+    ### 🌟 **Unlock Insights, Predict Outcomes, and Make Informed Decisions!**
+
+    Ever wondered how certain factors influence behavior or outcomes? Whether you're looking to predict sales, understand customer behavior, or analyze trends, our platform is here to help!
+
+    **What Can You Do with This App?**
+
+    - **Predict Future Sales**: Use historical data to forecast future performance.
+    - **Analyze Customer Behavior**: Understand which factors drive customer decisions.
+    - **Rank and Score Accounts**: Prioritize accounts based on custom criteria.
+    - **Explore Relationships**: See how different variables affect your target outcomes.
+
+    **How It Works:**
+
+    1. **Upload Your Data**: Bring in your CSV file containing the data you want to analyze.
+    2. **Select Variables**: Choose the factors (independent variables) you think influence your outcome.
+    3. **Choose a Model**: Pick from Linear Regression, Weighted Scoring, or Prediction Modeling.
+    4. **Get Results**: View insights, charts, and download detailed reports.
+
+    **Why Use This App?**
+
+    - **User-Friendly**: No coding or statistical background needed!
+    - **Flexible**: Tailor the analysis to your specific needs.
+    - **Insightful**: Gain valuable insights to drive your strategies.
+
+    Ready to dive in? Click **Next** to get started!
+    """)
+
 # Step 1: Upload CSV and Download Template
-if st.session_state.step == 1:
+elif st.session_state.step == 1:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 1: Upload Your CSV File")
 
@@ -375,10 +407,6 @@ elif st.session_state.step == 3:
                     st.session_state.target_column = target_column
                     st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
 
-                # Run Model Button with unique key and on_click callback
-                if st.button("Next →", key='run_model_linear'):
-                    next_step()
-
             else:
                 if st.session_state.selected_model == 'random_forest':
                     st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
@@ -464,13 +492,10 @@ elif st.session_state.step == 3:
                 # Store normalized weights in session state
                 st.session_state.normalized_weights = normalized_weights
 
-                # Run Model Button with unique key and on_click callback
-                if st.button("Next →", key='run_model_weighted'):
-                    next_step()
         else:
             st.info("Please select a model to proceed.")
 
-# Step 4: Display Results (Step number adjusts based on model)
+# Step 4: Display Results
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 4: Your Results")
@@ -507,12 +532,12 @@ elif st.session_state.step == 4:
         with col2:
             st.button("🔄 Restart", on_click=reset_app, key='restart')
 
-# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 1-3)
+# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 0-3)
 if st.session_state.step < 4:
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns([1, 1])
     with col1:
-        if st.session_state.step > 1:
+        if st.session_state.step > 0:
             st.markdown(
                 """
                 <style>
@@ -537,5 +562,313 @@ if st.session_state.step < 4:
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
 
-# Model functions (run_linear_regression, run_random_forest, run_weighted_scoring_model) remain unchanged from the previous code
-# Include them here as per your existing implementation.
+# Include model functions here (run_linear_regression, run_random_forest, run_weighted_scoring_model)
+# Ensure they are defined after the main app logic
+
+def run_linear_regression(X, y):
+    """
+    Trains and evaluates a Linear Regression model using statsmodels.
+    """
+    st.subheader("📈 Linear Regression Results")
+
+    # Convert data to numeric, drop rows with NaN values
+    X = X.apply(pd.to_numeric, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    data = pd.concat([X, y], axis=1).dropna()
+    X = data.drop(y.name, axis=1)
+    y = data[y.name]
+
+    # Add constant term for intercept
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X).fit()
+    predictions = model.predict(X)
+
+    # Display regression summary
+    st.write("**Regression Summary:**")
+    st.text(model.summary())
+
+    # Extract R-squared
+    r_squared = model.rsquared
+
+    # Create DataFrame for coefficients
+    coef_df = pd.DataFrame({
+        'Variable': model.params.index,
+        'Coefficient': model.params.values,
+        'Std. Error': model.bse.values,
+        'P-Value': model.pvalues.values
+    })
+
+    st.write("**Coefficients:**")
+    st.dataframe(coef_df)
+
+    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
+
+    # Plot Actual vs Predicted
+    fig = px.scatter(
+        x=y,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs. Predicted {y.name}'
+    )
+    fig.add_shape(
+        type="line",
+        x0=y.min(),
+        y0=y.min(),
+        x1=y.max(),
+        y1=y.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig)
+
+    # Interpretation in layman's terms
+    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown(f"""
+    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
+    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
+    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    """)
+
+    # Highlight key areas in the regression output
+    st.markdown("### 📊 **Key Areas in Regression Output Explained**")
+
+    st.write(f"""
+    **1. Dependent Variable:**
+    - The variable you're trying to predict, e.g., `{y.name}`.
+
+    **2. R-squared and Adjusted R-squared:**
+    - **R-squared:** Measures how well the independent variables explain the variability of the dependent variable.
+    - **Adjusted R-squared:** Adjusted for the number of predictors; more reliable when comparing models.
+
+    **3. F-statistic and Prob (F-statistic):**
+    - Tests the overall significance of the model.
+
+    **4. Coefficients Table:**
+    - **const (Constant Term):** Represents the expected value of the dependent variable when all independent variables are zero.
+    - **Coefficients of Independent Variables:** Indicates the change in the dependent variable for a one-unit change in the predictor, holding other variables constant.
+    - **P-Values:** Indicates the statistical significance of each predictor.
+
+    **5. Standard Error:**
+    - Reflects the variability of the coefficient estimate.
+
+    **6. t-statistic and P>|t|:**
+    - Used to determine the statistical significance of each coefficient.
+
+    **7. Confidence Intervals:**
+    - Range within which the true population parameter is expected to lie with a certain level of confidence (usually 95%).
+
+    **8. Diagnostic Tests:**
+    - **Durbin-Watson:** Tests for autocorrelation in residuals.
+    - **Omnibus and Prob(Omnibus):** Tests for normality of residuals.
+    """)
+
+    # Graph Explanation
+    st.markdown("### 📈 **Graph Explanation:**")
+    st.write(f"""
+    The scatter plot compares the actual `{y.name}` values with the predicted values from the model.
+
+    - **Diagonal Line (Red Dashed Line):** Represents perfect predictions where actual values equal predicted values.
+    - **Data Points:** Each point represents an observation from your dataset.
+    - **Interpretation:**
+        - Points close to the diagonal line indicate accurate predictions.
+        - A tight clustering around the line suggests a good model fit.
+        - Systematic deviations may indicate issues with the model.
+    """)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y,
+        'Predicted': predictions,
+        'Residual': y - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
+
+def run_random_forest(X, y, normalized_weights):
+    """
+    Trains and evaluates a Random Forest Regressor.
+    """
+    st.subheader("🤖 Prediction Modeling Results")
+
+    # Apply feature weights before training
+    if normalized_weights:
+        for feature, weight in normalized_weights.items():
+            if feature in X.columns:
+                X[feature] *= weight
+
+    # Handle infinite values
+    for col in X.columns:
+        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+    X = X.dropna()
+    y = y.loc[X.index]  # Align y with X after dropping rows
+
+    # Split the data into training and testing sets
+    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
+
+    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
+
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+
+    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+
+    # Plot Feature Importance
+    importances = model.feature_importances_
+    feature_names = X_train.columns
+    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    feature_importances.plot(kind='bar', ax=ax)
+    ax.set_title("Feature Importances")
+    st.pyplot(fig)
+
+    # Plot Actual vs Predicted
+    fig2 = px.scatter(
+        x=y_test,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs Predicted {y.name}'
+    )
+    fig2.add_shape(
+        type="line",
+        x0=y_test.min(),
+        y0=y_test.min(),
+        x1=y_test.max(),
+        y1=y_test.max(),
+        line=dict(color="Red", dash="dash")
+    )
+    st.plotly_chart(fig2)
+
+    # General explanation about prediction modeling
+    st.markdown("### 📚 **Understanding Prediction Modeling**")
+    st.write("""
+    Prediction modeling involves using statistical techniques to predict future outcomes based on historical data.
+    It helps in identifying patterns and making informed decisions.
+
+    - **When to Use:** Ideal for forecasting and making predictions when you have sufficient historical data.
+    - **Advantages:** Can handle complex relationships and interactions between variables.
+    - **Considerations:** Requires careful feature selection and tuning to avoid overfitting.
+
+    The model has analyzed your data and provided predictions based on the selected features and their importance.
+    Use these insights to guide your strategic planning and decision-making processes.
+    """)
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = pd.DataFrame({
+        'Actual': y_test,
+        'Predicted': predictions,
+        'Residual': y_test - predictions
+    })
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='prediction_modeling_results.csv',
+        mime='text/csv'
+    )
+
+    # Download feature importances
+    feature_importances_df = feature_importances.reset_index()
+    feature_importances_df.columns = ['Feature', 'Importance']
+    download_importances = feature_importances_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Feature Importances as CSV",
+        data=download_importances,
+        file_name='feature_importances.csv',
+        mime='text/csv'
+    )
+
+def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
+    """
+    Calculates and evaluates a Weighted Scoring Model and displays the results.
+    """
+    st.subheader("⚖️ Weighted Scoring Model Results")
+
+    # Explanation of the ranking scores
+    st.markdown("### ℹ️ **Understanding the Ranking Scores**")
+    st.write("""
+    The **Weighted Score** for each account is calculated by multiplying the selected feature values by their assigned weights and summing them up.
+    This score reflects the account's potential based on the criteria you set.
+
+    - **Higher Weighted Scores** indicate accounts with favorable characteristics according to your assigned weights.
+    - **Accounts are ranked** from highest to lowest based on their Weighted Scores.
+    - **Adopter Categories** are assigned based on the rankings:
+        - 🚀 **Early Adopter:** Top third of accounts.
+        - ⏳ **Middle Adopter:** Middle third of accounts.
+        - 🐢 **Late Adopter:** Bottom third of accounts.
+
+    Use this information to prioritize accounts and tailor your strategies accordingly.
+    """)
+
+    # Encode categorical features
+    df_encoded = encode_categorical_features(df.copy(), mappings)
+
+    # Calculate weighted score based on normalized weights
+    df_encoded['Weighted_Score'] = 0
+    for feature, weight in normalized_weights.items():
+        if feature in df_encoded.columns:
+            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
+                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
+            else:
+                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
+        else:
+            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
+
+    # Rank the accounts based on Weighted_Score
+    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
+
+    # Divide the accounts into three groups
+    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+
+    # Mapping adopter categories to emojis
+    adopter_emojis = {
+        'Early Adopter': '🚀',
+        'Middle Adopter': '⏳',
+        'Late Adopter': '🐢'
+    }
+
+    # Display the leaderboard
+    st.markdown("### 🏆 **Leaderboard of Accounts**")
+    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+
+    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+
+    # Display accounts with emojis
+    for idx, row in top_accounts.iterrows():
+        emoji = adopter_emojis.get(row['Adopter_Category'], '')
+        st.markdown(f"""
+        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
+        - **Account Number:** {row['acct_numb']}  
+        - **Weighted Score:** {row['Weighted_Score']:.2f}  
+        - **Adopter Category:** {row['Adopter_Category']}  
+        - **{target_column}:** {row[target_column]}
+        """)
+        st.markdown("---")
+
+    # Correlation with target
+    correlation = df_encoded['Weighted_Score'].corr(df_encoded[target_column])
+    st.write(f"**Correlation between Weighted Score and {target_column}:** {correlation:.2f}")
+
+    # Provide download link for model results
+    st.markdown("### 💾 **Download Model Results**")
+    # Prepare data for download
+    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='weighted_scoring_model_results.csv',
+        mime='text/csv'
+    )
