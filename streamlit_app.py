@@ -22,7 +22,7 @@ if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
 
 if 'target_column' not in st.session_state:
-    st.session_state.target_column = 'Account Adoption Rank Order'  # Default target variable
+    st.session_state.target_column = None  # User-selected target variable
 
 if 'selected_features' not in st.session_state:
     st.session_state.selected_features = []  # Selected independent variables
@@ -175,7 +175,7 @@ def run_linear_regression(X, y):
         x=y,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs. Predicted Account Adoption Rank Order'
+        title=f'Actual vs. Predicted {y.name}'
     )
     fig.add_shape(
         type="line",
@@ -198,9 +198,9 @@ def run_linear_regression(X, y):
     # Highlight key areas in the regression output
     st.markdown("### 📊 **Key Areas in Regression Output Explained**")
 
-    st.write("""
+    st.write(f"""
     **1. Dependent Variable:**
-    - The variable you're trying to predict, e.g., `Account Adoption Rank Order`.
+    - The variable you're trying to predict, e.g., `{y.name}`.
 
     **2. R-squared and Adjusted R-squared:**
     - **R-squared:** Measures how well the independent variables explain the variability of the dependent variable.
@@ -230,8 +230,8 @@ def run_linear_regression(X, y):
 
     # Graph Explanation
     st.markdown("### 📈 **Graph Explanation:**")
-    st.write("""
-    The scatter plot compares the actual `Account Adoption Rank Order` values with the predicted values from the model.
+    st.write(f"""
+    The scatter plot compares the actual `{y.name}` values with the predicted values from the model.
 
     - **Diagonal Line (Red Dashed Line):** Represents perfect predictions where actual values equal predicted values.
     - **Data Points:** Each point represents an observation from your dataset.
@@ -303,7 +303,7 @@ def run_random_forest(X, y, normalized_weights):
         x=y_test,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title='Actual vs Predicted Account Adoption Rank Order'
+        title=f'Actual vs Predicted {y.name}'
     )
     fig2.add_shape(
         type="line",
@@ -485,7 +485,7 @@ def render_sidebar():
     """
     step_titles = [
         "Upload CSV File",
-        "Confirm Target Variable",
+        "Select Dependent Variable",
         "Select Independent Variables",
         "Choose Model & Assign Weights",
         "Your Results"
@@ -569,23 +569,45 @@ if st.session_state.step == 1:
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Confirm Target Variable
+# Step 2: Select Dependent Variable
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 2: Confirm Target Variable")
+    st.subheader("Step 2: Select Your Dependent Variable")
 
     if 'df' not in st.session_state or st.session_state.df is None:
         st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
     else:
-        # Display the selected target variable
-        target_column = st.session_state.target_column if st.session_state.target_column else 'Account Adoption Rank Order'
-        st.session_state.target_column = target_column  # Ensure it's set
+        df = st.session_state.df
 
-        st.markdown(f"**Selected Target Variable:** `{target_column}`")
+        # Provide a lay-level definition of the dependent variable
+        st.markdown("""
+        **What is a Dependent Variable?**
+
+        The dependent variable, also known as the target variable, is the main factor you're trying to understand or predict.
+        It's called 'dependent' because its value depends on other variables in your data.
+
+        For example, if you want to predict sales based on advertising spend, sales would be the dependent variable.
+        """)
+
+        # Exclude identifier columns from selection
+        identifier_columns = ['acct_numb', 'acct_name']
+        possible_targets = [col for col in df.columns if col not in identifier_columns]
+
+        # Dropdown for selecting the dependent variable
+        target_column = st.selectbox(
+            "Choose your dependent variable (the variable you want to predict):",
+            options=possible_targets,
+            help="Select one variable that you want to understand or predict.",
+            key='target_variable_selection'
+        )
+
+        if target_column:
+            st.session_state.target_column = target_column
+            st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
 
         # Add descriptive text guiding to next steps
         st.write("""
-            In the next step, you will select the independent variables that will be used to predict the **Account Adoption Rank Order**.
+            In the next step, you will select the independent variables that will be used to predict the dependent variable.
             This guided process ensures that you choose the most relevant features for accurate predictions.
         """)
 
@@ -595,7 +617,7 @@ elif st.session_state.step == 3:
     if 'df' not in st.session_state or st.session_state.df is None:
         st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
     elif 'target_column' not in st.session_state or st.session_state.target_column is None:
-        st.warning("⚠️ Target variable not set. Please go back to Step 2.")
+        st.warning("⚠️ Dependent variable not set. Please go back to Step 2.")
     else:
         df = st.session_state.df
         target_column = st.session_state.target_column
@@ -664,7 +686,7 @@ elif st.session_state.step == 4:
                 # Instructions
                 st.markdown("**Assign Weights to Selected Features** 🎯")
                 st.write("""
-                    Assign how important each feature is in determining the **Account Adoption Rank Order**. 
+                    Assign how important each feature is in determining the dependent variable.
                     The weights must add up to **10**. Use the number inputs below to assign weights.
                 """)
 
