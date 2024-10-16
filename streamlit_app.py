@@ -33,9 +33,6 @@ if 'selected_model' not in st.session_state:
 if 'normalized_weights' not in st.session_state:
     st.session_state.normalized_weights = None  # Normalized weights
 
-if 'dependent_variable_needed' not in st.session_state:
-    st.session_state.dependent_variable_needed = False  # Flag for dependent variable selection
-
 # Function to reset the app to Step 1
 def reset_app():
     for key in list(st.session_state.keys()):
@@ -48,28 +45,30 @@ def reset_to_step_3():
 
 # Function to advance to the next step
 def next_step():
-    if st.session_state.step == 1 and st.session_state.df is None:
-        st.warning("⚠️ Please upload a CSV file before proceeding.")
+    if st.session_state.step == 1:
+        if st.session_state.df is None:
+            st.error("⚠️ Please upload a CSV file before proceeding.")
+        else:
+            st.session_state.step += 1
+    elif st.session_state.step == 2:
+        if not st.session_state.selected_features:
+            st.error("⚠️ Please select at least one independent variable before proceeding.")
+        else:
+            st.session_state.step += 1
     elif st.session_state.step == 3:
         if st.session_state.selected_model is None:
-            st.warning("⚠️ Please select a model before proceeding.")
+            st.error("⚠️ Please select a model before proceeding.")
         else:
             if st.session_state.selected_model == 'linear_regression':
-                st.session_state.dependent_variable_needed = True
-                st.session_state.step = 4
+                if 'target_column' not in st.session_state or st.session_state.target_column is None:
+                    st.error("⚠️ Please select a dependent variable before proceeding.")
+                else:
+                    preprocess_data()
+                    preprocess_data_with_target()
+                    st.session_state.step += 1
             else:
-                # Preprocess data and proceed to results
                 preprocess_data()
-                st.session_state.step = 5
-    elif st.session_state.step == 4:
-        if st.session_state.dependent_variable_needed:
-            if 'target_column' not in st.session_state or st.session_state.target_column is None:
-                st.warning("⚠️ Please select a dependent variable before proceeding.")
-            else:
-                preprocess_data_with_target()
-                st.session_state.step = 5
-        else:
-            st.session_state.step = 5
+                st.session_state.step += 1
     elif st.session_state.step < 5:
         st.session_state.step += 1
 
@@ -189,21 +188,6 @@ def preprocess_data_with_target():
     y = y.loc[X.index]  # Align y with X after preprocessing
     st.session_state.y = y
 
-def run_selected_model():
-    """
-    Executes the selected model based on user input and advances to the next step.
-    """
-    selected_model = st.session_state.selected_model
-
-    if selected_model == 'linear_regression':
-        st.session_state.dependent_variable_needed = True
-        st.session_state.step = 4  # Proceed to dependent variable selection
-    else:
-        st.session_state.dependent_variable_needed = False
-        # Prepare data and proceed to results
-        preprocess_data()
-        st.session_state.step = 5  # Proceed to results
-
 def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
@@ -216,7 +200,7 @@ def render_sidebar():
     ]
 
     if st.session_state.selected_model == 'linear_regression':
-        step_titles = base_steps[:3] + ["Choose Dependent Variable", "Your Results"]
+        step_titles = base_steps[:2] + ["Choose Model & Select Dependent Variable", "Your Results"]
     else:
         step_titles = base_steps
 
@@ -351,20 +335,50 @@ elif st.session_state.step == 3:
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            st.button("Run Linear Regression", on_click=select_linear_regression, key='model_linear_regression')
+            if st.button("Run Linear Regression", key='model_linear_regression'):
+                select_linear_regression()
+
         with col2:
-            st.button("Run Weighted Scoring", on_click=select_weighted_scoring, key='model_weighted_scoring')
+            if st.button("Run Weighted Scoring", key='model_weighted_scoring'):
+                select_weighted_scoring()
+
         with col3:
-            st.button("Run Prediction Modeling", on_click=select_random_forest, key='model_prediction_modeling')
+            if st.button("Run Prediction Modeling", key='model_prediction_modeling'):
+                select_random_forest()
 
         # Show description based on selected model
         if st.session_state.selected_model:
             if st.session_state.selected_model == 'linear_regression':
                 st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
-                st.session_state.normalized_weights = None  # Weights not needed for Linear Regression
+
+                # Display dependent variable selection
+                st.markdown("""
+                **Select Your Dependent Variable**
+
+                The dependent variable, also known as the target variable, is the main factor you're trying to understand or predict.
+                It's called 'dependent' because its value depends on other variables in your data.
+                """)
+
+                # Exclude identifier columns and selected features from selection
+                identifier_columns = ['acct_numb', 'acct_name']
+                possible_targets = [col for col in df.columns if col not in identifier_columns + selected_features]
+
+                # Dropdown for selecting the dependent variable
+                target_column = st.selectbox(
+                    "Choose your dependent variable (the variable you want to predict):",
+                    options=possible_targets,
+                    help="Select one variable that you want to understand or predict.",
+                    key='target_variable_selection'
+                )
+
+                if target_column:
+                    st.session_state.target_column = target_column
+                    st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
 
                 # Run Model Button with unique key and on_click callback
-                st.button("Next →", on_click=run_selected_model, key='run_model_linear')
+                if st.button("Next →", key='run_model_linear'):
+                    next_step()
+
             else:
                 if st.session_state.selected_model == 'random_forest':
                     st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
@@ -372,7 +386,7 @@ elif st.session_state.step == 3:
                     st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
 
                 # Add note on top of the sliders
-                st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting, and you may proceed to run the model in the below step.")
+                st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting.")
 
                 # Instructions
                 st.markdown("**Assign Weights to Selected Features** 🎯")
@@ -451,58 +465,15 @@ elif st.session_state.step == 3:
                 st.session_state.normalized_weights = normalized_weights
 
                 # Run Model Button with unique key and on_click callback
-                st.button("Next →", on_click=run_selected_model, key='run_model_weighted')
+                if st.button("Next →", key='run_model_weighted'):
+                    next_step()
         else:
             st.info("Please select a model to proceed.")
 
-# Step 4: Choose Dependent Variable (Only for Linear Regression)
+# Step 4: Display Results (Step number adjusts based on model)
 elif st.session_state.step == 4:
-    if st.session_state.dependent_variable_needed:
-        st.title("💊 Behavior Prediction Platform 💊")
-        st.subheader("Step 4: Choose Your Dependent Variable")
-
-        df = st.session_state.df
-
-        # Provide a lay-level definition of the dependent variable
-        st.markdown("""
-        **What is a Dependent Variable?**
-
-        The dependent variable, also known as the target variable, is the main factor you're trying to understand or predict.
-        It's called 'dependent' because its value depends on other variables in your data.
-
-        For example, if you want to predict sales based on advertising spend, sales would be the dependent variable.
-        """)
-
-        # Exclude identifier columns and selected features from selection
-        identifier_columns = ['acct_numb', 'acct_name']
-        possible_targets = [col for col in df.columns if col not in identifier_columns + st.session_state.selected_features]
-
-        # Dropdown for selecting the dependent variable
-        target_column = st.selectbox(
-            "Choose your dependent variable (the variable you want to predict):",
-            options=possible_targets,
-            help="Select one variable that you want to understand or predict.",
-            key='target_variable_selection'
-        )
-
-        if target_column:
-            st.session_state.target_column = target_column
-            st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
-
-            # Now we can proceed to preprocess data with target
-            preprocess_data()
-            preprocess_data_with_target()
-
-            # Run Model Button with unique key and on_click callback
-            st.button("Next →", on_click=next_step, key='proceed_to_results')
-    else:
-        # If dependent variable is not needed, skip to results
-        st.session_state.step = 5
-
-# Step 5: Display Results
-elif st.session_state.step == 5:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 5: Your Results")
+    st.subheader("Step 4: Your Results")
 
     selected_model = st.session_state.selected_model
     normalized_weights = st.session_state.normalized_weights
@@ -519,11 +490,7 @@ elif st.session_state.step == 5:
                 with st.spinner("Training Linear Regression model..."):
                     run_linear_regression(st.session_state.X, st.session_state.y)
         elif selected_model == 'random_forest':
-            if 'target_column' in st.session_state and st.session_state.target_column:
-                st.session_state.y = df[st.session_state.target_column]
-            else:
-                st.session_state.y = df['Account Adoption Rank Order']  # Default target variable
-
+            st.session_state.y = df['Account Adoption Rank Order']  # Default target variable
             with st.spinner("Running Prediction Modeling..."):
                 run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
         elif selected_model == 'weighted_scoring_model':
@@ -532,7 +499,7 @@ elif st.session_state.step == 5:
         else:
             st.error("No model selected. Please go back to Step 3 and select a model.")
 
-        # Navigation buttons on Step 5
+        # Navigation buttons on the Results step
         st.markdown("<br>", unsafe_allow_html=True)
         col1, col2 = st.columns([1, 1])
         with col1:
@@ -540,8 +507,8 @@ elif st.session_state.step == 5:
         with col2:
             st.button("🔄 Restart", on_click=reset_app, key='restart')
 
-# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 1-4)
-if st.session_state.step != 5:
+# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 1-3)
+if st.session_state.step < 4:
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns([1, 1])
     with col1:
@@ -558,15 +525,17 @@ if st.session_state.step != 5:
             )
             st.button("← Back", on_click=prev_step, key='back_bottom')
     with col2:
-        if st.session_state.step < 5:
-            st.markdown(
-                """
-                <style>
-                .stButton>button {
-                    width: 100%;
-                }
-                </style>
-                """,
-                unsafe_allow_html=True
-            )
-            st.button("Next →", on_click=next_step, key='next_bottom')
+        st.markdown(
+            """
+            <style>
+            .stButton>button {
+                width: 100%;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        st.button("Next →", on_click=next_step, key='next_bottom')
+
+# Model functions (run_linear_regression, run_random_forest, run_weighted_scoring_model) remain unchanged from the previous code
+# Include them here as per your existing implementation.
