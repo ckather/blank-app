@@ -11,8 +11,6 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import lightgbm as lgb
 import shap  # Ensure SHAP is installed: pip install shap
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 
 # Set the page configuration
 st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
@@ -568,6 +566,24 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
             """)
             st.markdown("---")
 
+    # **Added Section: Understanding the Scores**
+    st.markdown("### 📄 **Understanding the Scores:**")
+    st.markdown("""
+    - **Weighted Score:** This score represents the combined weighted importance of the selected features for each account. A higher score indicates a higher priority based on your assigned weights.
+    
+    - **Rank:** The position of the account in the leaderboard, with Rank 1 being the highest priority.
+    
+    - **Adopter Category:**
+        - **Early Adopter (🚀):** Accounts that rank in the top third based on the weighted score. These are your highest priority accounts.
+        - **Middle Adopter (⏳):** Accounts that rank in the middle third. They are important but not as critical as early adopters.
+        - **Late Adopter (🐢):** Accounts that rank in the bottom third. These are lower priority accounts.
+    
+    **How to Use These Scores:**
+    - **Prioritization:** Focus your efforts on **Early Adopters** to maximize impact.
+    - **Resource Allocation:** Allocate more resources to higher-ranked accounts to drive better outcomes.
+    - **Strategic Planning:** Use the scores and categories to inform your strategic decisions and marketing strategies.
+    """)
+
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
     # Prepare data for download
@@ -943,3 +959,4 @@ if st.session_state.step < 4:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
+
