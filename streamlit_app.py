@@ -69,10 +69,11 @@ def next_step():
                     st.error("⚠️ Please select a dependent variable before proceeding.")
                     return
                 else:
-                    preprocess_data()
-                    preprocess_data_with_target()
+                    # Call the cached preprocessing functions with required arguments
+                    st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
+                    st.session_state.y = preprocess_data_with_target_cached(st.session_state.df, st.session_state.target_column, st.session_state.X)
             elif st.session_state.selected_model == 'weighted_scoring_model':
-                preprocess_data()
+                st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
             st.session_state.step += 1
     elif st.session_state.step < 5:
         st.session_state.step += 1
