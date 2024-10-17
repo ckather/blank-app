@@ -396,6 +396,17 @@ def run_lightgbm(X, y):
             best_lgbm.fit(X_train, y_train)
         st.info("Hyperparameter tuning was skipped. Default parameters were used.")
 
+    # Train the best model on the entire training set with early stopping if hyperparameter tuning was performed
+    if perform_hyperparameter_tuning:
+        with st.spinner("⚙️ Training the best LightGBM model with early stopping..."):
+            best_lgbm.fit(
+                X_train, y_train,
+                eval_set=[(X_test, y_test)],
+                eval_metric='rmse',
+                early_stopping_rounds=30,       # Reduced from 50 to 30
+                verbose=False
+            )
+
     predictions = best_lgbm.predict(X_test)
 
     # Evaluation Metrics
@@ -494,8 +505,32 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         else:
             st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
 
+    # Handle non-finite values in 'Weighted_Score'
+    df_encoded['Weighted_Score'] = df_encoded['Weighted_Score'].replace([np.inf, -np.inf], np.nan)
+    initial_row_count = df_encoded.shape[0]
+    df_encoded = df_encoded.dropna(subset=['Weighted_Score'])
+    final_row_count = df_encoded.shape[0]
+    if final_row_count < initial_row_count:
+        st.warning(f"Dropped {initial_row_count - final_row_count} rows due to non-finite 'Weighted_Score' values.")
+
+    # Check if 'Weighted_Score' is empty after dropping NaNs
+    if df_encoded.empty:
+        st.error("❌ All rows have invalid 'Weighted_Score' values after preprocessing.")
+        return
+
     # Rank the accounts based on Weighted_Score
-    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
+    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False)
+
+    # Ensure 'Rank' has no NaN or inf values
+    df_encoded['Rank'] = df_encoded['Rank'].replace([np.inf, -np.inf], np.nan)
+    df_encoded = df_encoded.dropna(subset=['Rank'])
+
+    # Cast 'Rank' to integer
+    try:
+        df_encoded['Rank'] = df_encoded['Rank'].astype(int)
+    except ValueError as ve:
+        st.error(f"❌ Error converting 'Rank' to integer: {ve}")
+        return
 
     # Divide the accounts into three groups
     try:
@@ -517,17 +552,21 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
 
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
 
-    # Display accounts with emojis
-    for idx, row in top_accounts.iterrows():
-        emoji = adopter_emojis.get(row['Adopter_Category'], '')
-        st.markdown(f"""
-        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
-        - **Account Number:** {row['acct_numb']}  
-        - **Weighted Score:** {row['Weighted_Score']:.2f}  
-        - **Adopter Category:** {row['Adopter_Category']}  
-        - **{target_column}:** {row[target_column]}
-        """)
-        st.markdown("---")
+    # Check if top_accounts is empty
+    if top_accounts.empty:
+        st.warning("⚠️ No accounts to display based on the current selection.")
+    else:
+        # Display accounts with emojis
+        for idx, row in top_accounts.iterrows():
+            emoji = adopter_emojis.get(row['Adopter_Category'], '')
+            st.markdown(f"""
+            **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
+            - **Account Number:** {row['acct_numb']}  
+            - **Weighted Score:** {row['Weighted_Score']:.2f}  
+            - **Adopter Category:** {row['Adopter_Category']}  
+            - **{target_column}:** {row[target_column]}
+            """)
+            st.markdown("---")
 
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
@@ -811,20 +850,24 @@ elif st.session_state.step == 3:
                     if total_weight > 0:
                         normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
                     else:
-                        normalized_weights = feature_weights  # Avoid division by zero
+                        st.error("❌ Total weight is zero. Please assign a positive total weight.")
+                        normalized_weights = None
                 else:
                     normalized_weights = feature_weights
 
-                # Display normalized weights
-                st.markdown("**Normalized Weights:**")
-                normalized_weights_df = pd.DataFrame({
-                    'Feature': list(normalized_weights.keys()),
-                    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
-                })
-                st.dataframe(normalized_weights_df)
+                # Display normalized weights if normalization was successful
+                if normalized_weights:
+                    st.markdown("**Normalized Weights:**")
+                    normalized_weights_df = pd.DataFrame({
+                        'Feature': list(normalized_weights.keys()),
+                        'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+                    })
+                    st.dataframe(normalized_weights_df)
 
-                # Store normalized weights in session state
-                st.session_state.normalized_weights = normalized_weights
+                    # Store normalized weights in session state
+                    st.session_state.normalized_weights = normalized_weights
+                else:
+                    st.session_state.normalized_weights = None
 
         else:
             st.info("Please select a model to proceed.")
@@ -855,8 +898,11 @@ elif st.session_state.step == 4:
                 with st.spinner("Training LightGBM model..."):
                     run_lightgbm(st.session_state.X, st.session_state.y)
         elif selected_model == 'weighted_scoring_model':
-            with st.spinner("Calculating Weighted Scoring Model..."):
-                run_weighted_scoring_model(df, normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
+            if normalized_weights is None:
+                st.error("⚠️ Invalid weights assigned. Please go back and assign valid weights.")
+            else:
+                with st.spinner("Calculating Weighted Scoring Model..."):
+                    run_weighted_scoring_model(df, normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
         else:
             st.error("No model selected. Please go back to Step 3 and select a model.")
 
