@@ -36,6 +36,12 @@ if 'selected_model' not in st.session_state:
 if 'normalized_weights' not in st.session_state:
     st.session_state.normalized_weights = None  # Normalized weights
 
+if 'X' not in st.session_state:
+    st.session_state.X = None  # Preprocessed features
+
+if 'y' not in st.session_state:
+    st.session_state.y = None  # Preprocessed target
+
 # Function to reset the app to Start Here
 def reset_app():
     for key in list(st.session_state.keys()):
@@ -306,7 +312,7 @@ def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
     Includes:
-    - Hyperparameter tuning
+    - Optional Hyperparameter tuning
     - Cross-validation
     - Additional evaluation metrics
     - Residual analysis
@@ -335,52 +341,60 @@ def run_lightgbm(X, y):
 
     st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
 
-    # Hyperparameter Tuning using RandomizedSearchCV
-    st.markdown("### 🔍 **Hyperparameter Tuning with Randomized Search**")
-    param_grid = {
-        'num_leaves': [31, 50, 70],
-        'max_depth': [10, 20, 30],
-        'learning_rate': [0.01, 0.05, 0.1],
-        'n_estimators': [100, 200],
-        'subsample': [0.6, 0.8, 1.0],
-        'colsample_bytree': [0.6, 0.8, 1.0],
-        'reg_alpha': [0, 0.1, 0.5],
-        'reg_lambda': [0, 0.1, 0.5]
-    }
+    # Add a checkbox to allow users to skip hyperparameter tuning
+    perform_hyperparameter_tuning = st.checkbox("Perform Hyperparameter Tuning for LightGBM", value=True)
 
-    lgbm = lgb.LGBMRegressor(random_state=42, n_jobs=-1)
-    randomized_search = RandomizedSearchCV(
-        estimator=lgbm,
-        param_distributions=param_grid,
-        n_iter=20,  # Number of parameter settings sampled
-        cv=3,        # Reduced number of folds for speed
-        scoring='neg_mean_squared_error',
-        random_state=42,
-        n_jobs=-1,
-        verbose=1
-    )
+    if perform_hyperparameter_tuning:
+        # Optimized Hyperparameter Tuning using RandomizedSearchCV
+        st.markdown("### 🔍 **Hyperparameter Tuning with Randomized Search**")
+        param_grid = {
+            'num_leaves': [31, 50],          # Reduced options
+            'max_depth': [10, 20],           # Reduced options
+            'learning_rate': [0.01, 0.05],   # Reduced options
+            'n_estimators': [100, 200],      # Reduced options
+            'subsample': [0.8, 1.0],         # Reduced options
+            'colsample_bytree': [0.8, 1.0],  # Reduced options
+            # Removed 'reg_alpha' and 'reg_lambda' to further simplify
+        }
 
-    with st.spinner("🔄 Performing Randomized Search for Hyperparameter Tuning..."):
-        randomized_search.fit(X_train, y_train)
-        best_lgbm = randomized_search.best_estimator_
-        st.write(f"**Best Parameters:** {randomized_search.best_params_}")
-
-    # Cross-Validation Scores
-    st.markdown("### 📊 **Cross-Validation Performance**")
-    cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3, scoring='neg_mean_squared_error', n_jobs=-1)
-    cv_mse = -cv_scores.mean()
-    cv_std = cv_scores.std()
-    st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
-
-    # Train the best model on the entire training set with early stopping
-    with st.spinner("⚙️ Training the best LightGBM model with early stopping..."):
-        best_lgbm.fit(
-            X_train, y_train,
-            eval_set=[(X_test, y_test)],
-            eval_metric='rmse',
-            early_stopping_rounds=50,
-            verbose=False
+        lgbm = lgb.LGBMRegressor(random_state=42, n_jobs=-1)
+        randomized_search = RandomizedSearchCV(
+            estimator=lgbm,
+            param_distributions=param_grid,
+            n_iter=10,                        # Reduced from 20 to 10
+            cv=3,                             # Reduced from 5 to 3
+            scoring='neg_mean_squared_error',
+            random_state=42,
+            n_jobs=-1,
+            verbose=1                          # Enabled verbose to monitor progress
         )
+
+        with st.spinner("🔄 Performing Optimized Randomized Search for Hyperparameter Tuning..."):
+            randomized_search.fit(X_train, y_train)
+            best_lgbm = randomized_search.best_estimator_
+            st.write(f"**Best Parameters:** {randomized_search.best_params_}")
+
+        # Cross-Validation Scores
+        st.markdown("### 📊 **Cross-Validation Performance**")
+        cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3, scoring='neg_mean_squared_error', n_jobs=-1)
+        cv_mse = -cv_scores.mean()
+        cv_std = cv_scores.std()
+        st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
+    else:
+        # Initialize LightGBM with default or pre-set parameters
+        best_lgbm = lgb.LGBMRegressor(
+            num_leaves=31,
+            max_depth=10,
+            learning_rate=0.05,
+            n_estimators=100,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            n_jobs=-1
+        )
+        with st.spinner("⚙️ Training LightGBM model with default parameters..."):
+            best_lgbm.fit(X_train, y_train)
+        st.info("Hyperparameter tuning was skipped. Default parameters were used.")
 
     predictions = best_lgbm.predict(X_test)
 
