@@ -62,14 +62,14 @@ def next_step():
         if st.session_state.selected_model is None:
             st.error("⚠️ Please select a model before proceeding.")
         else:
-            if st.session_state.selected_model == 'linear_regression':
+            if st.session_state.selected_model == 'linear_regression' or st.session_state.selected_model == 'lightgbm':
                 if 'target_column' not in st.session_state or st.session_state.target_column is None:
                     st.error("⚠️ Please select a dependent variable before proceeding.")
                     return
                 else:
                     preprocess_data()
                     preprocess_data_with_target()
-            else:
+            elif st.session_state.selected_model == 'weighted_scoring_model':
                 preprocess_data()
             st.session_state.step += 1
     elif st.session_state.step < 5:
@@ -161,10 +161,13 @@ def preprocess_data():
     selected_features = st.session_state.selected_features
     X = df[selected_features].copy()
 
+    st.write(f"**Initial data rows:** {X.shape[0]}")
+
     # Handle categorical variables using one-hot encoding
     selected_categorical = [col for col in selected_features if df[col].dtype == 'object']
     if selected_categorical:
         X = pd.get_dummies(X, columns=selected_categorical, drop_first=True)
+        st.write(f"**After One-Hot Encoding, data rows:** {X.shape[0]}")
 
     # Handle missing values
     for col in X.columns:
@@ -173,8 +176,13 @@ def preprocess_data():
         else:
             X[col].fillna(X[col].mean(), inplace=True)
 
+    st.write(f"**After Handling Missing Values, data rows:** {X.shape[0]}")
+
     # Handle infinite values
-    X = X.replace([np.inf, -np.inf], np.nan).dropna()
+    X = X.replace([np.inf, -np.inf], np.nan)
+    X = X.dropna()
+
+    st.write(f"**After Removing Infinite Values and Dropping NaNs, data rows:** {X.shape[0]}")
 
     # Store preprocessed data in session state for use in Step 4
     st.session_state.X = X
@@ -312,6 +320,9 @@ def run_lightgbm(X, y):
     # Handle infinite values
     X = X.replace([np.inf, -np.inf], np.nan).dropna()
     y = y.loc[X.index]  # Align y with X after dropping rows
+
+    # Display number of samples after preprocessing
+    st.write(f"**Number of samples after preprocessing:** {X.shape[0]}")
 
     # Check if there are enough samples after preprocessing
     if X.shape[0] < 10:
@@ -661,8 +672,11 @@ elif st.session_state.step == 3:
 
         # Show description based on selected model
         if st.session_state.selected_model:
-            if st.session_state.selected_model == 'linear_regression':
-                st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
+            if st.session_state.selected_model == 'linear_regression' or st.session_state.selected_model == 'lightgbm':
+                if st.session_state.selected_model == 'linear_regression':
+                    st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
+                else:
+                    st.info("**LightGBM Regression:** Utilize efficient gradient boosting to predict outcomes based on historical data. Ideal for handling large datasets with high performance.")
 
                 # Display selected independent variables
                 st.markdown("**Selected Independent Variables:**")
@@ -692,99 +706,84 @@ elif st.session_state.step == 3:
                     st.session_state.target_column = target_column
                     st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
 
-            else:
-                if st.session_state.selected_model == 'lightgbm':
-                    st.info("**LightGBM Regression:** Utilize efficient gradient boosting to predict outcomes based on historical data. Ideal for handling large datasets with high performance.")
-                elif st.session_state.selected_model == 'weighted_scoring_model':
-                    st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
+            elif st.session_state.selected_model == 'weighted_scoring_model':
+                st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
 
-                # Conditional Weight Assignment: Only show weights for Weighted Scoring Model
-                if st.session_state.selected_model == 'weighted_scoring_model':
-                    # Instructions
-                    st.markdown("**Assign Weights to Selected Features** 🎯")
-                    st.write("""
-                        Assign how important each feature is in determining the outcome.
-                        The weights must add up to **10**. Use the number inputs below to assign weights.
-                    """)
+                # Instructions
+                st.markdown("**Assign Weights to Selected Features** 🎯")
+                st.write("""
+                    Assign how important each feature is in determining the outcome.
+                    The weights must add up to **10**. Use the number inputs below to assign weights.
+                """)
 
-                    # Initialize a dictionary to store user-assigned weights
-                    feature_weights = {}
+                # Initialize a dictionary to store user-assigned weights
+                feature_weights = {}
 
-                    st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
+                st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
 
-                    # Create number inputs for each feature
-                    for feature in selected_features:
-                        weight = st.number_input(
-                            f"Weight for **{feature}**:",
-                            min_value=0.0,
-                            max_value=10.0,
-                            value=0.0,
-                            step=0.5,
-                            format="%.1f",
-                            key=f"weight_input_{feature}"
-                        )
-                        feature_weights[feature] = weight
-
-                    # Calculate total weight
-                    total_weight = sum(feature_weights.values())
-
-                    # Display total weight with validation
-                    st.markdown("---")
-                    st.markdown("### 🎯 **Total Weight Assigned:**")
-
-                    if total_weight < 10:
-                        status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
-                        color = "#FFC107"  # Yellow
-                    elif total_weight > 10:
-                        status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
-                        color = "#DC3545"  # Red
-                    else:
-                        status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
-                        color = "#28A745"  # Green
-
-                    # Display status
-                    st.markdown(
-                        f"""
-                        <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
-                            <h3 style="color:white; text-align:center;">{status}</h3>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
+                # Create number inputs for each feature
+                for feature in selected_features:
+                    weight = st.number_input(
+                        f"Weight for **{feature}**:",
+                        min_value=0.0,
+                        max_value=10.0,
+                        value=0.0,
+                        step=0.5,
+                        format="%.1f",
+                        key=f"weight_input_{feature}"
                     )
+                    feature_weights[feature] = weight
 
-                    # Progress bar
-                    st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+                # Calculate total weight
+                total_weight = sum(feature_weights.values())
 
-                    # Normalize weights if necessary
-                    if total_weight != 10:
-                        st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
-                        if total_weight > 0:
-                            normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
-                        else:
-                            normalized_weights = feature_weights  # Avoid division by zero
-                    else:
-                        normalized_weights = feature_weights
+                # Display total weight with validation
+                st.markdown("---")
+                st.markdown("### 🎯 **Total Weight Assigned:**")
 
-                    # Display normalized weights
-                    st.markdown("**Normalized Weights:**")
-                    normalized_weights_df = pd.DataFrame({
-                        'Feature': list(normalized_weights.keys()),
-                        'Weight': [round(weight, 2) for weight in normalized_weights.values()]
-                    })
-                    st.dataframe(normalized_weights_df)
-
-                    # Store normalized weights in session state
-                    st.session_state.normalized_weights = normalized_weights
-
+                if total_weight < 10:
+                    status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
+                    color = "#FFC107"  # Yellow
+                elif total_weight > 10:
+                    status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
+                    color = "#DC3545"  # Red
                 else:
-                    # For LightGBM, no weights are needed
-                    st.write("**LightGBM Regression** does not require feature weighting.")
-                    st.markdown("### 📊 **Configure Model Parameters**")
+                    status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
+                    color = "#28A745"  # Green
 
-                    st.markdown("""
-                        The LightGBM model will automatically handle feature importance and complex relationships.
-                        You can adjust the test size percentage in Step 4 to control the training and testing split.
-                    """)
+                # Display status
+                st.markdown(
+                    f"""
+                    <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+                        <h3 style="color:white; text-align:center;">{status}</h3>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+                # Progress bar
+                st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+
+                # Normalize weights if necessary
+                if total_weight != 10:
+                    st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+                    if total_weight > 0:
+                        normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+                    else:
+                        normalized_weights = feature_weights  # Avoid division by zero
+                else:
+                    normalized_weights = feature_weights
+
+                # Display normalized weights
+                st.markdown("**Normalized Weights:**")
+                normalized_weights_df = pd.DataFrame({
+                    'Feature': list(normalized_weights.keys()),
+                    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+                })
+                st.dataframe(normalized_weights_df)
+
+                # Store normalized weights in session state
+                st.session_state.normalized_weights = normalized_weights
 
         else:
             st.info("Please select a model to proceed.")
@@ -809,8 +808,11 @@ elif st.session_state.step == 4:
                 with st.spinner("Training Linear Regression model..."):
                     run_linear_regression(st.session_state.X, st.session_state.y)
         elif selected_model == 'lightgbm':
-            with st.spinner("Training LightGBM model..."):
-                run_lightgbm(st.session_state.X, st.session_state.y)
+            if 'y' not in st.session_state:
+                st.error("⚠️ Dependent variable not found. Please go back and select your dependent variable.")
+            else:
+                with st.spinner("Training LightGBM model..."):
+                    run_lightgbm(st.session_state.X, st.session_state.y)
         elif selected_model == 'weighted_scoring_model':
             with st.spinner("Calculating Weighted Scoring Model..."):
                 run_weighted_scoring_model(df, normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
@@ -854,4 +856,3 @@ if st.session_state.step < 4:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
-
