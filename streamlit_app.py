@@ -7,10 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import statsmodels.api as sm
-from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import lightgbm as lgb
 import shap  # Ensure SHAP is installed: pip install shap
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 # Set the page configuration
 st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
@@ -156,21 +158,17 @@ def generate_account_adoption_rank(df):
 
     return df
 
-def preprocess_data():
-    df = st.session_state.df
-    selected_features = st.session_state.selected_features
+@st.cache_data(show_spinner=False)
+def preprocess_data_cached(df, selected_features):
+    """
+    Preprocesses the data and caches the result to speed up the app.
+    """
     X = df[selected_features].copy()
-
-    # Ensure that preprocessing messages are displayed after the title
-    # Place the following code within the relevant step's block
-
-    st.write(f"**Initial data rows:** {X.shape[0]}")
 
     # Handle categorical variables using one-hot encoding
     selected_categorical = [col for col in selected_features if df[col].dtype == 'object']
     if selected_categorical:
         X = pd.get_dummies(X, columns=selected_categorical, drop_first=True)
-        st.write(f"**After One-Hot Encoding, data rows:** {X.shape[0]}")
 
     # Handle missing values
     for col in X.columns:
@@ -179,26 +177,21 @@ def preprocess_data():
         else:
             X[col].fillna(X[col].mean(), inplace=True)
 
-    st.write(f"**After Handling Missing Values, data rows:** {X.shape[0]}")
-
     # Handle infinite values
     X = X.replace([np.inf, -np.inf], np.nan)
     X = X.dropna()
 
-    st.write(f"**After Removing Infinite Values and Dropping NaNs, data rows:** {X.shape[0]}")
+    return X
 
-    # Store preprocessed data in session state for use in Step 4
-    st.session_state.X = X
-
-def preprocess_data_with_target():
-    df = st.session_state.df
-    target_column = st.session_state.target_column
-    X = st.session_state.X
+@st.cache_data(show_spinner=False)
+def preprocess_data_with_target_cached(df, target_column, X):
+    """
+    Preprocesses the target variable and aligns it with X.
+    """
     y = df[target_column]
-
     y = pd.to_numeric(y, errors='coerce')
     y = y.loc[X.index]  # Align y with X after preprocessing
-    st.session_state.y = y
+    return y
 
 def render_sidebar():
     """
@@ -331,8 +324,8 @@ def run_lightgbm(X, y):
     st.write(f"**Number of samples after preprocessing:** {X.shape[0]}")
 
     # Check if there are enough samples after preprocessing
-    if X.shape[0] < 10:
-        st.error("❌ Not enough data after preprocessing to train the model.")
+    if X.shape[0] < 100:
+        st.error("❌ Not enough data after preprocessing to train the model. Please ensure your dataset has at least 100 rows.")
         return
 
     # Split the data into training and testing sets
@@ -341,37 +334,53 @@ def run_lightgbm(X, y):
 
     st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
 
-    # Hyperparameter Tuning using GridSearchCV
-    st.markdown("### 🔍 **Hyperparameter Tuning with Grid Search**")
+    # Hyperparameter Tuning using RandomizedSearchCV
+    st.markdown("### 🔍 **Hyperparameter Tuning with Randomized Search**")
     param_grid = {
         'num_leaves': [31, 50, 70],
-        'max_depth': [-1, 10, 20],
+        'max_depth': [10, 20, 30],
         'learning_rate': [0.01, 0.05, 0.1],
-        'n_estimators': [100, 200, 300],
+        'n_estimators': [100, 200],
         'subsample': [0.6, 0.8, 1.0],
         'colsample_bytree': [0.6, 0.8, 1.0],
         'reg_alpha': [0, 0.1, 0.5],
         'reg_lambda': [0, 0.1, 0.5]
     }
 
-    lgbm = lgb.LGBMRegressor(random_state=42)
-    grid_search = GridSearchCV(estimator=lgbm, param_grid=param_grid,
-                               cv=5, n_jobs=-1, verbose=1, scoring='neg_mean_squared_error')
+    lgbm = lgb.LGBMRegressor(random_state=42, n_jobs=-1)
+    randomized_search = RandomizedSearchCV(
+        estimator=lgbm,
+        param_distributions=param_grid,
+        n_iter=20,  # Number of parameter settings sampled
+        cv=3,        # Reduced number of folds for speed
+        scoring='neg_mean_squared_error',
+        random_state=42,
+        n_jobs=-1,
+        verbose=1
+    )
 
-    with st.spinner("🔄 Performing Grid Search for Hyperparameter Tuning..."):
-        grid_search.fit(X_train, y_train)
-        best_lgbm = grid_search.best_estimator_
-        st.write(f"**Best Parameters:** {grid_search.best_params_}")
+    with st.spinner("🔄 Performing Randomized Search for Hyperparameter Tuning..."):
+        randomized_search.fit(X_train, y_train)
+        best_lgbm = randomized_search.best_estimator_
+        st.write(f"**Best Parameters:** {randomized_search.best_params_}")
 
     # Cross-Validation Scores
     st.markdown("### 📊 **Cross-Validation Performance**")
-    cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
+    cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3, scoring='neg_mean_squared_error', n_jobs=-1)
     cv_mse = -cv_scores.mean()
     cv_std = cv_scores.std()
     st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
 
-    # Train the best model on the entire training set
-    best_lgbm.fit(X_train, y_train)
+    # Train the best model on the entire training set with early stopping
+    with st.spinner("⚙️ Training the best LightGBM model with early stopping..."):
+        best_lgbm.fit(
+            X_train, y_train,
+            eval_set=[(X_test, y_test)],
+            eval_metric='rmse',
+            early_stopping_rounds=50,
+            verbose=False
+        )
+
     predictions = best_lgbm.predict(X_test)
 
     # Evaluation Metrics
@@ -419,8 +428,10 @@ def run_lightgbm(X, y):
     # SHAP for Model Explainability
     st.markdown("### 🧠 **Model Explainability with SHAP**")
     try:
-        explainer = shap.Explainer(best_lgbm)
+        # Initialize SHAP explainer
+        explainer = shap.Explainer(best_lgbm, X_test)
         shap_values = explainer(X_test)
+        
         st.markdown("#### 📊 **SHAP Summary Plot**")
         shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
         st.pyplot(bbox_inches='tight')
@@ -606,6 +617,10 @@ elif st.session_state.step == 1:
             st.session_state.df = df  # Update in session state
 
             st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
+
+            # Display preprocessing messages below the title
+            st.write(f"**Initial data rows:** {df.shape[0]}")
+            # Preprocessing will be done in the next steps, so these messages are moved
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
@@ -644,6 +659,11 @@ elif st.session_state.step == 2:
         if selected_features:
             st.session_state.selected_features = selected_features
             st.success(f"✅ You have selected {len(selected_features)} independent variables.")
+
+            # Optional: Provide feature descriptions or importance
+            st.markdown("**Selected Features:**")
+            for feature in selected_features:
+                st.write(f"- {feature}")
         else:
             st.warning("⚠️ Please select at least one independent variable.")
 
@@ -790,9 +810,6 @@ elif st.session_state.step == 3:
 
                 # Store normalized weights in session state
                 st.session_state.normalized_weights = normalized_weights
-
-            else:
-                st.info("Please select a model to proceed.")
 
         else:
             st.info("Please select a model to proceed.")
