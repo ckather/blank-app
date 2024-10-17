@@ -1,7 +1,9 @@
 streamlit
 pandas
+numpy
 matplotlib
 plotly
 statsmodels
 scikit-learn
-numpy
+lightgbm
+shap
