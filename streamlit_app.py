@@ -7,9 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 import statsmodels.api as sm
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split, GridSearchCV, cross_val_score
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+import lightgbm as lgb
+import shap  # Ensure SHAP is installed: pip install shap
 
 # Set the page configuration
 st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
@@ -86,8 +87,8 @@ def select_linear_regression():
 def select_weighted_scoring():
     st.session_state.selected_model = 'weighted_scoring_model'
 
-def select_random_forest():
-    st.session_state.selected_model = 'random_forest'
+def select_lightgbm():
+    st.session_state.selected_model = 'lightgbm'
 
 # Define mappings for categorical features
 categorical_mappings = {
@@ -173,10 +174,8 @@ def preprocess_data():
             X[col].fillna(X[col].mean(), inplace=True)
 
     # Handle infinite values
-    for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
+    X = X.replace([np.inf, -np.inf], np.nan).dropna()
 
-    X = X.dropna()
     # Store preprocessed data in session state for use in Step 4
     st.session_state.X = X
 
@@ -298,284 +297,123 @@ def run_linear_regression(X, y):
         mime='text/csv'
     )
 
-def run_random_forest(X, y, normalized_weights):
+def run_lightgbm(X, y):
     """
-    Trains and evaluates a Random Forest Regressor.
+    Trains and evaluates a LightGBM Regressor.
+    Includes:
+    - Hyperparameter tuning
+    - Cross-validation
+    - Additional evaluation metrics
+    - Residual analysis
+    - SHAP for model explainability
     """
-    st.subheader("🤖 Prediction Modeling Results")
-
-    # Apply feature weights before training
-    if normalized_weights:
-        for feature, weight in normalized_weights.items():
-            if feature in X.columns:
-                X[feature] *= weight
+    st.subheader("⚡ LightGBM Regression Results")
 
     # Handle infinite values
-    for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
-    X = X.dropna()
+    X = X.replace([np.inf, -np.inf], np.nan).dropna()
     y = y.loc[X.index]  # Align y with X after dropping rows
 
+    # Check if there are enough samples after preprocessing
+    if X.shape[0] < 10:
+        st.error("❌ Not enough data after preprocessing to train the model.")
+        return
+
     # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
+    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider_lgbm')
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
 
     st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
-    mse = mean_squared_error(y_test, predictions)
-
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-
-    # Plot Feature Importance
-    importances = model.feature_importances_
-    feature_names = X_train.columns
-    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax)
-    ax.set_title("Feature Importances")
-    st.pyplot(fig)
-
-    # Plot Actual vs Predicted
-    fig2 = px.scatter(
-        x=y_test,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs Predicted {y.name}'
-    )
-    fig2.add_shape(
-        type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig2)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y_test,
-        'Predicted': predictions,
-        'Residual': y_test - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='prediction_modeling_results.csv',
-        mime='text/csv'
-    )
-
-def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
-    """
-    Calculates and evaluates a Weighted Scoring Model and displays the results.
-    """
-    st.subheader("⚖️ Weighted Scoring Model Results")
-
-    # Encode categorical features
-    df_encoded = encode_categorical_features(df.copy(), mappings)
-
-    # Calculate weighted score based on normalized weights
-    df_encoded['Weighted_Score'] = 0
-    for feature, weight in normalized_weights.items():
-        if feature in df_encoded.columns:
-            if pd.api.types.is_numeric_dtype(df_encoded[feature]):
-                df_encoded['Weighted_Score'] += df_encoded[feature] * weight
-            else:
-                st.warning(f"Feature '{feature}' is not numeric and will be skipped in scoring.")
-        else:
-            st.warning(f"Feature '{feature}' not found in the data and will be skipped.")
-
-    # Rank the accounts based on Weighted_Score
-    df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
-
-    # Divide the accounts into three groups
-    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
-
-    # Mapping adopter categories to emojis
-    adopter_emojis = {
-        'Early Adopter': '🚀',
-        'Middle Adopter': '⏳',
-        'Late Adopter': '🐢'
+    # Hyperparameter Tuning using GridSearchCV
+    st.markdown("### 🔍 **Hyperparameter Tuning with Grid Search**")
+    param_grid = {
+        'num_leaves': [31, 50, 70],
+        'max_depth': [-1, 10, 20],
+        'learning_rate': [0.01, 0.05, 0.1],
+        'n_estimators': [100, 200, 300],
+        'subsample': [0.6, 0.8, 1.0],
+        'colsample_bytree': [0.6, 0.8, 1.0],
+        'reg_alpha': [0, 0.1, 0.5],
+        'reg_lambda': [0, 0.1, 0.5]
     }
 
-    # Display the leaderboard
-    st.markdown("### 🏆 **Leaderboard of Accounts**")
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+    lgbm = lgb.LGBMRegressor(random_state=42)
+    grid_search = GridSearchCV(estimator=lgbm, param_grid=param_grid,
+                               cv=5, n_jobs=-1, verbose=1, scoring='neg_mean_squared_error')
 
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+    with st.spinner("🔄 Performing Grid Search for Hyperparameter Tuning..."):
+        grid_search.fit(X_train, y_train)
+        best_lgbm = grid_search.best_estimator_
+        st.write(f"**Best Parameters:** {grid_search.best_params_}")
 
-    # Display accounts with emojis
-    for idx, row in top_accounts.iterrows():
-        emoji = adopter_emojis.get(row['Adopter_Category'], '')
-        st.markdown(f"""
-        **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
-        - **Account Number:** {row['acct_numb']}  
-        - **Weighted Score:** {row['Weighted_Score']:.2f}  
-        - **Adopter Category:** {row['Adopter_Category']}  
-        - **{target_column}:** {row[target_column]}
-        """)
-        st.markdown("---")
+    # Cross-Validation Scores
+    st.markdown("### 📊 **Cross-Validation Performance**")
+    cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
+    cv_mse = -cv_scores.mean()
+    cv_std = cv_scores.std()
+    st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
 
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False)
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='weighted_scoring_model_results.csv',
-        mime='text/csv'
-    )
-# Continue from Part 1
+    # Train the best model on the entire training set
+    best_lgbm.fit(X_train, y_train)
+    predictions = best_lgbm.predict(X_test)
 
-# Define model functions here (run_linear_regression, run_random_forest, run_weighted_scoring_model)
-# These functions are already defined in Part 1 above.
-
-def run_linear_regression(X, y):
-    """
-    Trains and evaluates a Linear Regression model using statsmodels.
-    """
-    st.subheader("📈 Linear Regression Results")
-
-    # Convert data to numeric, drop rows with NaN values
-    X = X.apply(pd.to_numeric, errors='coerce')
-    y = pd.to_numeric(y, errors='coerce')
-    data = pd.concat([X, y], axis=1).dropna()
-    X = data.drop(y.name, axis=1)
-    y = data[y.name]
-
-    # Add constant term for intercept
-    X = sm.add_constant(X)
-
-    model = sm.OLS(y, X).fit()
-    predictions = model.predict(X)
-
-    # Display regression summary
-    st.write("**Regression Summary:**")
-    st.text(model.summary())
-
-    # Extract R-squared
-    r_squared = model.rsquared
-
-    # Create DataFrame for coefficients
-    coef_df = pd.DataFrame({
-        'Variable': model.params.index,
-        'Coefficient': model.params.values,
-        'Std. Error': model.bse.values,
-        'P-Value': model.pvalues.values
-    })
-
-    st.write("**Coefficients:**")
-    st.dataframe(coef_df)
-
-    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
-
-    # Plot Actual vs Predicted
-    fig = px.scatter(
-        x=y,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs. Predicted {y.name}'
-    )
-    fig.add_shape(
-        type="line",
-        x0=y.min(),
-        y0=y.min(),
-        x1=y.max(),
-        y1=y.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig)
-
-    # Interpretation in layman's terms
-    st.markdown("### 🔍 **Interpretation of Results:**")
-    st.markdown(f"""
-    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
-    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
-    """)
-
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y,
-        'Predicted': predictions,
-        'Residual': y - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='linear_regression_results.csv',
-        mime='text/csv'
-    )
-
-def run_random_forest(X, y, normalized_weights):
-    """
-    Trains and evaluates a Random Forest Regressor.
-    """
-    st.subheader("🤖 Prediction Modeling Results")
-
-    # Apply feature weights before training
-    if normalized_weights:
-        for feature, weight in normalized_weights.items():
-            if feature in X.columns:
-                X[feature] *= weight
-
-    # Handle infinite values
-    for col in X.columns:
-        X[col] = X[col].replace([np.inf, -np.inf], np.nan)
-    X = X.dropna()
-    y = y.loc[X.index]  # Align y with X after dropping rows
-
-    # Split the data into training and testing sets
-    test_size = st.slider("Select Test Size Percentage", min_value=10, max_value=50, value=20, step=5, key='test_size_slider')
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size/100, random_state=42)
-
-    st.write(f"**Training samples:** {X_train.shape[0]} | **Testing samples:** {X_test.shape[0]}")
-
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
+    # Evaluation Metrics
     mse = mean_squared_error(y_test, predictions)
+    mae = mean_absolute_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
 
     st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+    st.write(f"**Mean Absolute Error (MAE):** {mae:.2f}")
+    st.write(f"**R² Score:** {r2:.4f}")
 
     # Plot Feature Importance
-    importances = model.feature_importances_
-    feature_names = X_train.columns
-    feature_importances = pd.Series(importances, index=feature_names).sort_values(ascending=False)
+    st.markdown("### 📈 **Feature Importances**")
+    feature_importances = pd.Series(best_lgbm.feature_importances_, index=X.columns).sort_values(ascending=False)
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax)
+    feature_importances.plot(kind='bar', ax=ax, color='skyblue')
     ax.set_title("Feature Importances")
+    ax.set_xlabel("Features")
+    ax.set_ylabel("Importance Score")
     st.pyplot(fig)
 
     # Plot Actual vs Predicted
+    st.markdown("### 📊 **Actual vs. Predicted Values**")
     fig2 = px.scatter(
         x=y_test,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs Predicted {y.name}'
-    )
-    fig2.add_shape(
-        type="line",
-        x0=y_test.min(),
-        y0=y_test.min(),
-        x1=y_test.max(),
-        y1=y_test.max(),
-        line=dict(color="Red", dash="dash")
+        title=f'Actual vs Predicted {y.name}',
+        trendline="ols"
     )
     st.plotly_chart(fig2)
+
+    # Residual Analysis
+    st.markdown("### 📉 **Residual Analysis**")
+    residuals = y_test - predictions
+    fig3, ax3 = plt.subplots(figsize=(10, 6))
+    ax3.scatter(predictions, residuals, alpha=0.5, color='green')
+    ax3.axhline(0, color='red', linestyle='--')
+    ax3.set_xlabel('Predicted Values')
+    ax3.set_ylabel('Residuals')
+    ax3.set_title('Residuals vs. Predicted Values')
+    st.pyplot(fig3)
+
+    # SHAP for Model Explainability
+    st.markdown("### 🧠 **Model Explainability with SHAP**")
+    try:
+        explainer = shap.Explainer(best_lgbm)
+        shap_values = explainer(X_test)
+        st.markdown("#### 📊 **SHAP Summary Plot**")
+        shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
+        st.pyplot(bbox_inches='tight')
+
+        st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
+        top_feature = feature_importances.index[0]
+        shap.dependence_plot(top_feature, shap_values, X_test, show=False)
+        st.pyplot(bbox_inches='tight')
+    except Exception as e:
+        st.warning(f"⚠️ SHAP could not be computed: {e}. Ensure SHAP is installed and try again.")
 
     # Provide download link for model results
     st.markdown("### 💾 **Download Model Results**")
@@ -583,13 +421,13 @@ def run_random_forest(X, y, normalized_weights):
     results_df = pd.DataFrame({
         'Actual': y_test,
         'Predicted': predictions,
-        'Residual': y_test - predictions
+        'Residual': residuals
     })
     download_data = results_df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Results as CSV",
         data=download_data,
-        file_name='prediction_modeling_results.csv',
+        file_name='lightgbm_results.csv',
         mime='text/csv'
     )
 
@@ -617,7 +455,11 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     df_encoded['Rank'] = df_encoded['Weighted_Score'].rank(method='dense', ascending=False).astype(int)
 
     # Divide the accounts into three groups
-    df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+    try:
+        df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter', 'Middle Adopter', 'Late Adopter'])
+    except ValueError as ve:
+        st.error(f"❌ Error in categorizing adopter groups: {ve}")
+        return
 
     # Mapping adopter categories to emojis
     adopter_emojis = {
@@ -814,8 +656,8 @@ elif st.session_state.step == 3:
                 select_weighted_scoring()
 
         with col3:
-            if st.button("Run Prediction Modeling", key='model_prediction_modeling'):
-                select_random_forest()
+            if st.button("Run LightGBM", key='model_lightgbm'):
+                select_lightgbm()
 
         # Show description based on selected model
         if st.session_state.selected_model:
@@ -851,89 +693,98 @@ elif st.session_state.step == 3:
                     st.success(f"✅ You have selected **{target_column}** as your dependent variable.")
 
             else:
-                if st.session_state.selected_model == 'random_forest':
-                    st.info("**Prediction Modeling:** Utilize advanced algorithms to predict future outcomes based on historical data. Ideal for forecasting and handling complex patterns.")
+                if st.session_state.selected_model == 'lightgbm':
+                    st.info("**LightGBM Regression:** Utilize efficient gradient boosting to predict outcomes based on historical data. Ideal for handling large datasets with high performance.")
                 elif st.session_state.selected_model == 'weighted_scoring_model':
                     st.info("**Weighted Scoring Model:** Choose this model if you're looking for analysis, not prediction.")
 
-                # Add note on top of the sliders
-                st.write("**Note:** You should only custom weight your variables if you are planning to run a Weighted Scoring Model or Prediction Modeling. Linear regression does not require weighting.")
+                # Conditional Weight Assignment: Only show weights for Weighted Scoring Model
+                if st.session_state.selected_model == 'weighted_scoring_model':
+                    # Instructions
+                    st.markdown("**Assign Weights to Selected Features** 🎯")
+                    st.write("""
+                        Assign how important each feature is in determining the outcome.
+                        The weights must add up to **10**. Use the number inputs below to assign weights.
+                    """)
 
-                # Instructions
-                st.markdown("**Assign Weights to Selected Features** 🎯")
-                st.write("""
-                    Assign how important each feature is in determining the outcome.
-                    The weights must add up to **10**. Use the number inputs below to assign weights.
-                """)
+                    # Initialize a dictionary to store user-assigned weights
+                    feature_weights = {}
 
-                # Initialize a dictionary to store user-assigned weights
-                feature_weights = {}
+                    st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
 
-                st.markdown("### 🔢 **Enter Weights for Each Feature (Total Must Be 10):**")
+                    # Create number inputs for each feature
+                    for feature in selected_features:
+                        weight = st.number_input(
+                            f"Weight for **{feature}**:",
+                            min_value=0.0,
+                            max_value=10.0,
+                            value=0.0,
+                            step=0.5,
+                            format="%.1f",
+                            key=f"weight_input_{feature}"
+                        )
+                        feature_weights[feature] = weight
 
-                # Create number inputs for each feature
-                for feature in selected_features:
-                    weight = st.number_input(
-                        f"Weight for **{feature}**:",
-                        min_value=0.0,
-                        max_value=10.0,
-                        value=0.0,
-                        step=0.5,
-                        format="%.1f",
-                        key=f"weight_input_{feature}"
-                    )
-                    feature_weights[feature] = weight
+                    # Calculate total weight
+                    total_weight = sum(feature_weights.values())
 
-                # Calculate total weight
-                total_weight = sum(feature_weights.values())
+                    # Display total weight with validation
+                    st.markdown("---")
+                    st.markdown("### 🎯 **Total Weight Assigned:**")
 
-                # Display total weight with validation
-                st.markdown("---")
-                st.markdown("### 🎯 **Total Weight Assigned:**")
-
-                if total_weight < 10:
-                    status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
-                    color = "#FFC107"  # Yellow
-                elif total_weight > 10:
-                    status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
-                    color = "#DC3545"  # Red
-                else:
-                    status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
-                    color = "#28A745"  # Green
-
-                # Display status
-                st.markdown(
-                    f"""
-                    <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
-                        <h3 style="color:white; text-align:center;">{status}</h3>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-                # Progress bar
-                st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
-
-                # Normalize weights if necessary
-                if total_weight != 10:
-                    st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
-                    if total_weight > 0:
-                        normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+                    if total_weight < 10:
+                        status = f"❗ Total weight is **{total_weight:.1f}**, which is less than **10**."
+                        color = "#FFC107"  # Yellow
+                    elif total_weight > 10:
+                        status = f"❗ Total weight is **{total_weight:.1f}**, which is more than **10**."
+                        color = "#DC3545"  # Red
                     else:
-                        normalized_weights = feature_weights  # Avoid division by zero
+                        status = f"✅ Total weight is **{total_weight:.1f}**, which meets the requirement."
+                        color = "#28A745"  # Green
+
+                    # Display status
+                    st.markdown(
+                        f"""
+                        <div style="background-color:{color}; padding: 10px; border-radius: 5px;">
+                            <h3 style="color:white; text-align:center;">{status}</h3>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    # Progress bar
+                    st.progress(min(total_weight / 10, 1.0))  # Progress out of 10
+
+                    # Normalize weights if necessary
+                    if total_weight != 10:
+                        st.warning("⚠️ The total weight does not equal **10**. The weights will be normalized automatically.")
+                        if total_weight > 0:
+                            normalized_weights = {feature: (weight / total_weight) * 10 for feature, weight in feature_weights.items()}
+                        else:
+                            normalized_weights = feature_weights  # Avoid division by zero
+                    else:
+                        normalized_weights = feature_weights
+
+                    # Display normalized weights
+                    st.markdown("**Normalized Weights:**")
+                    normalized_weights_df = pd.DataFrame({
+                        'Feature': list(normalized_weights.keys()),
+                        'Weight': [round(weight, 2) for weight in normalized_weights.values()]
+                    })
+                    st.dataframe(normalized_weights_df)
+
+                    # Store normalized weights in session state
+                    st.session_state.normalized_weights = normalized_weights
+
                 else:
-                    normalized_weights = feature_weights
+                    # For LightGBM, no weights are needed
+                    st.write("**LightGBM Regression** does not require feature weighting.")
+                    st.markdown("### 📊 **Configure Model Parameters**")
 
-                # Display normalized weights
-                st.markdown("**Normalized Weights:**")
-                normalized_weights_df = pd.DataFrame({
-                    'Feature': list(normalized_weights.keys()),
-                    'Weight': [round(weight, 2) for weight in normalized_weights.values()]
-                })
-                st.dataframe(normalized_weights_df)
-
-                # Store normalized weights in session state
-                st.session_state.normalized_weights = normalized_weights
+                    st.markdown("""
+                        The LightGBM model will automatically handle feature importance and complex relationships.
+                        You can adjust the test size percentage in Step 4 to control the training and testing split.
+                    """)
 
         else:
             st.info("Please select a model to proceed.")
@@ -957,10 +808,9 @@ elif st.session_state.step == 4:
             else:
                 with st.spinner("Training Linear Regression model..."):
                     run_linear_regression(st.session_state.X, st.session_state.y)
-        elif selected_model == 'random_forest':
-            st.session_state.y = df['Account Adoption Rank Order']  # Default target variable
-            with st.spinner("Running Prediction Modeling..."):
-                run_random_forest(st.session_state.X, st.session_state.y, normalized_weights)
+        elif selected_model == 'lightgbm':
+            with st.spinner("Training LightGBM model..."):
+                run_lightgbm(st.session_state.X, st.session_state.y)
         elif selected_model == 'weighted_scoring_model':
             with st.spinner("Calculating Weighted Scoring Model..."):
                 run_weighted_scoring_model(df, normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
