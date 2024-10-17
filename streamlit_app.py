@@ -62,7 +62,7 @@ def next_step():
         if st.session_state.selected_model is None:
             st.error("⚠️ Please select a model before proceeding.")
         else:
-            if st.session_state.selected_model == 'linear_regression' or st.session_state.selected_model == 'lightgbm':
+            if st.session_state.selected_model in ['linear_regression', 'lightgbm']:
                 if 'target_column' not in st.session_state or st.session_state.target_column is None:
                     st.error("⚠️ Please select a dependent variable before proceeding.")
                     return
@@ -160,6 +160,9 @@ def preprocess_data():
     df = st.session_state.df
     selected_features = st.session_state.selected_features
     X = df[selected_features].copy()
+
+    # Ensure that preprocessing messages are displayed after the title
+    # Place the following code within the relevant step's block
 
     st.write(f"**Initial data rows:** {X.shape[0]}")
 
@@ -316,6 +319,9 @@ def run_lightgbm(X, y):
     - SHAP for model explainability
     """
     st.subheader("⚡ LightGBM Regression Results")
+
+    # Inform the user about the processing time
+    st.markdown("**⚠️ Note:** Training the LightGBM model may take a few minutes. Please do not refresh the page or use any navigation buttons during this process.")
 
     # Handle infinite values
     X = X.replace([np.inf, -np.inf], np.nan).dropna()
@@ -481,7 +487,7 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
 
     # Display the leaderboard
     st.markdown("### 🏆 **Leaderboard of Accounts**")
-    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1)
+    top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1, key='top_n_slider')
 
     top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
 
@@ -672,7 +678,7 @@ elif st.session_state.step == 3:
 
         # Show description based on selected model
         if st.session_state.selected_model:
-            if st.session_state.selected_model == 'linear_regression' or st.session_state.selected_model == 'lightgbm':
+            if st.session_state.selected_model in ['linear_regression', 'lightgbm']:
                 if st.session_state.selected_model == 'linear_regression':
                     st.info("**Linear Regression:** Suitable for predicting continuous values based on linear relationships.")
                 else:
@@ -784,6 +790,9 @@ elif st.session_state.step == 3:
 
                 # Store normalized weights in session state
                 st.session_state.normalized_weights = normalized_weights
+
+            else:
+                st.info("Please select a model to proceed.")
 
         else:
             st.info("Please select a model to proceed.")
