@@ -416,7 +416,7 @@ def run_lightgbm(X, y):
     st.write(f"**Mean Absolute Error (MAE):** {mae:.2f}")
     st.write(f"**R² Score:** {r2:.4f}")
 
-    # Plot Feature Importance
+    # Plot Feature Importances
     st.markdown("### 📈 **Feature Importances**")
     feature_importances = pd.Series(best_lgbm.feature_importances_, index=X.columns).sort_values(ascending=False)
 
@@ -426,6 +426,13 @@ def run_lightgbm(X, y):
     ax.set_xlabel("Features")
     ax.set_ylabel("Importance Score")
     st.pyplot(fig)
+
+    st.markdown("""
+    **Interpretation:**
+    - **Feature Importances** indicate how much each feature contributes to the model's predictions.
+    - Higher bars represent more influential features.
+    - Focus on top features for strategic decision-making.
+    """)
 
     # Plot Actual vs Predicted
     st.markdown("### 📊 **Actual vs. Predicted Values**")
@@ -438,16 +445,12 @@ def run_lightgbm(X, y):
     )
     st.plotly_chart(fig2)
 
-    # Residual Analysis
-    st.markdown("### 📉 **Residual Analysis**")
-    residuals = y_test - predictions
-    fig3, ax3 = plt.subplots(figsize=(10, 6))
-    ax3.scatter(predictions, residuals, alpha=0.5, color='green')
-    ax3.axhline(0, color='red', linestyle='--')
-    ax3.set_xlabel('Predicted Values')
-    ax3.set_ylabel('Residuals')
-    ax3.set_title('Residuals vs. Predicted Values')
-    st.pyplot(fig3)
+    st.markdown("""
+    **Interpretation:**
+    - **Scatter Plot** compares actual values against the model's predictions.
+    - Points close to the diagonal red dashed line (`y = x`) indicate accurate predictions.
+    - Dispersion around the line helps assess prediction variability.
+    """)
 
     # SHAP for Model Explainability
     st.markdown("### 🧠 **Model Explainability with SHAP**")
@@ -473,7 +476,7 @@ def run_lightgbm(X, y):
     results_df = pd.DataFrame({
         'Actual': y_test,
         'Predicted': predictions,
-        'Residual': residuals
+        'Residual': y_test - predictions
     })
     download_data = results_df.to_csv(index=False).encode('utf-8')
     st.download_button(
@@ -959,4 +962,3 @@ if st.session_state.step < 4:
             unsafe_allow_html=True
         )
         st.button("Next →", on_click=next_step, key='next_bottom')
-
