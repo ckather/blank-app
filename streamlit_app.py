@@ -10,7 +10,7 @@ import statsmodels.api as sm
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, cross_val_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import lightgbm as lgb
-import shap  # Ensure SHAP is installed: pip install shap
+import shap  # Ensure SHAP is installed: pip install shap==0.41.0
 
 # Suppress warnings for cleaner output
 import warnings
@@ -43,6 +43,7 @@ if 'X' not in st.session_state:
 
 if 'y' not in st.session_state:
     st.session_state.y = None  # Preprocessed target
+
 # Function to reset the app to Start Here
 def reset_app():
     for key in list(st.session_state.keys()):
@@ -202,6 +203,7 @@ def preprocess_data_with_target_cached(df, target_column, X):
     y = pd.to_numeric(y, errors='coerce')
     y = y.loc[X.index]  # Align y with X after preprocessing
     return y
+
 # Function to render the sidebar with step highlighting
 def render_sidebar():
     """
@@ -228,6 +230,9 @@ def render_sidebar():
     # Restart button in the sidebar with a unique key
     st.sidebar.markdown("---")
     st.sidebar.button("🔄 Restart", on_click=reset_app, key='restart_sidebar')
+
+# Model Functions
+
 def run_linear_regression(X, y):
     """
     Trains and evaluates a Linear Regression model using statsmodels.
@@ -263,7 +268,7 @@ def run_linear_regression(X, y):
     })
 
     st.write("**Coefficients:**")
-    st.dataframe(coef_df)
+    st.dataframe(coef_df.style.highlight_max(axis=0, color='lightgreen'))
 
     st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
 
@@ -272,24 +277,19 @@ def run_linear_regression(X, y):
         x=y,
         y=predictions,
         labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs. Predicted {y.name}'
+        title=f'Actual vs. Predicted {y.name}',
+        trendline="ols"
     )
-    fig.add_shape(
-        type="line",
-        x0=y.min(),
-        y0=y.min(),
-        x1=y.max(),
-        y1=y.max(),
-        line=dict(color="Red", dash="dash")
-    )
-    st.plotly_chart(fig)
+    st.plotly_chart(fig, use_container_width=True)
 
     # Interpretation in layman's terms
-    st.markdown("### 🔍 **Interpretation of Results:**")
+    st.markdown("### 🔍 **Key Insights:**")
     st.markdown(f"""
-    - **R-squared:** Indicates that **{r_squared:.2%}** of the variability in the target variable is explained by the model.
-    - **Coefficients:** A positive coefficient means that as the variable increases, the target variable tends to increase; a negative coefficient indicates an inverse relationship.
-    - **P-Values:** Variables with p-values less than 0.05 are considered statistically significant.
+    - **R-squared:** The model explains **{r_squared:.2%}** of the variance in the target variable.
+    - **Coefficients:** 
+        - **Positive Coefficients:** Indicate a direct relationship with the target variable.
+        - **Negative Coefficients:** Indicate an inverse relationship with the target variable.
+    - **Statistical Significance:** Variables with p-values < 0.05 are considered significant.
     """)
 
     # Provide download link for model results
@@ -307,6 +307,7 @@ def run_linear_regression(X, y):
         file_name='linear_regression_results.csv',
         mime='text/csv'
     )
+
 def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
@@ -345,28 +346,27 @@ def run_lightgbm(X, y):
         # Optimized Hyperparameter Tuning using RandomizedSearchCV
         st.markdown("### 🔍 **Hyperparameter Tuning with Randomized Search**")
         param_grid = {
-            'num_leaves': [31, 50],          # Reduced options
-            'max_depth': [10, 20],           # Reduced options
-            'learning_rate': [0.01, 0.05],   # Reduced options
-            'n_estimators': [100, 200],      # Reduced options
-            'subsample': [0.8, 1.0],         # Reduced options
-            'colsample_bytree': [0.8, 1.0],  # Reduced options
-            # Removed 'reg_alpha' and 'reg_lambda' to further simplify
+            'num_leaves': [31, 50],
+            'max_depth': [10, 20],
+            'learning_rate': [0.01, 0.05],
+            'n_estimators': [100, 200],
+            'subsample': [0.8, 1.0],
+            'colsample_bytree': [0.8, 1.0],
         }
 
         lgbm = lgb.LGBMRegressor(random_state=42, n_jobs=-1)
         randomized_search = RandomizedSearchCV(
             estimator=lgbm,
             param_distributions=param_grid,
-            n_iter=10,                        # Reduced from 20 to 10
-            cv=3,                             # Reduced from 5 to 3
+            n_iter=10,
+            cv=3,
             scoring='neg_mean_squared_error',
             random_state=42,
             n_jobs=-1,
-            verbose=1                          # Enabled verbose to monitor progress
+            verbose=1
         )
 
-        with st.spinner("🔄 Performing Optimized Randomized Search for Hyperparameter Tuning..."):
+        with st.spinner("🔄 Performing Hyperparameter Tuning..."):
             try:
                 randomized_search.fit(X_train, y_train)
                 best_lgbm = randomized_search.best_estimator_
@@ -455,10 +455,22 @@ def run_lightgbm(X, y):
         # Reorder columns for better display
         if 'acct_numb' in adoption_predictions_sorted.columns and 'acct_name' in adoption_predictions_sorted.columns:
             adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'acct_numb', 'acct_name', 'Predicted_Adoption_2025']]
-            st.dataframe(adoption_predictions_sorted)
         else:
             adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'Account_Index', 'Predicted_Adoption_2025']]
-            st.dataframe(adoption_predictions_sorted)
+
+        # Add conditional formatting for better aesthetics
+        def highlight_top(row):
+            if row['Rank'] == 1:
+                return ['background-color: gold'] * len(row)
+            elif row['Rank'] == 2:
+                return ['background-color: silver'] * len(row)
+            elif row['Rank'] == 3:
+                return ['background-color: #cd7f32'] * len(row)  # Bronze
+            else:
+                return [''] * len(row)
+
+        styled_df = adoption_predictions_sorted.style.apply(highlight_top, axis=1)
+        st.dataframe(styled_df, use_container_width=True)
 
         st.markdown("""
         **Interpretation:**
@@ -481,41 +493,21 @@ def run_lightgbm(X, y):
         st.markdown("### 🧠 **Model Explainability with SHAP**")
         st.markdown("""
         **What is SHAP?**
-
         SHAP (SHapley Additive exPlanations) is a unified approach to explain the output of machine learning models. It connects optimal credit allocation with local explanations using concepts from cooperative game theory.
-
-        **Why Use SHAP?**
-
-        - **Interpretability:** Understand how each feature contributes to the model's predictions.
-        - **Transparency:** Gain insights into the decision-making process of complex models like LightGBM.
-        - **Trust:** Build trust in your model by explaining its predictions to stakeholders.
         """)
 
         # Initialize SHAP explainer
-        explainer = shap.Explainer(best_lgbm, X_test, feature_names=X_test.columns)
+        explainer = shap.Explainer(best_lgbm, X_test)
         shap_values = explainer(X_test)
 
+        # SHAP Summary Plot using Plotly for better aesthetics
         st.markdown("#### 📊 **SHAP Summary Plot**")
-        st.write("""
-        The **SHAP Summary Plot** provides a global view of feature importance and how each feature affects the model's predictions.
-
-        - **Feature Importance:** Features are ordered by their average impact on the model's predictions.
-        - **Feature Impact:** The position along the x-axis shows whether the effect of that value is associated with a higher or lower prediction.
-        - **Color Coding:** The color represents the feature value (red high, blue low).
-        """)
         fig_summary, ax_summary = plt.subplots(figsize=(10, 6))
         shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
-        st.pyplot(fig_summary, bbox_inches='tight')
+        st.pyplot(fig_summary, use_container_width=True)
 
+        # SHAP Dependence Plot using Plotly
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
-        st.write("""
-        The **SHAP Dependence Plot** shows the relationship between a single feature and the target prediction, considering the interaction with other features.
-
-        - **X-axis:** Feature value.
-        - **Y-axis:** SHAP value (impact on prediction).
-        - **Color Coding:** Another feature that interacts with the feature being plotted.
-        """)
-
         # Identify the top feature based on SHAP values
         shap_abs_mean = np.abs(shap_values.values).mean(axis=0)
         top_feature_index = np.argmax(shap_abs_mean)
@@ -523,35 +515,27 @@ def run_lightgbm(X, y):
 
         fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
         shap.dependence_plot(top_feature_name, shap_values.values, X_test, show=False)
-        st.pyplot(fig_dependence, bbox_inches='tight')
+        st.pyplot(fig_dependence, use_container_width=True)
 
         st.markdown("""
         **How to Interpret SHAP Plots:**
-
-        - **SHAP Summary Plot:**
-            - **Higher SHAP Values:** Indicate that the feature has a strong positive impact on the prediction.
-            - **Lower SHAP Values:** Indicate that the feature has a strong negative impact on the prediction.
-            - **Color Intensity:** Shows whether the feature value is high (red) or low (blue).
-
-        - **SHAP Dependence Plot:**
-            - **Trend:** Reveals how changes in the feature value affect the prediction.
-            - **Interaction:** Color coding can show interactions with other features, indicating combined effects.
-
-        **Benefits:**
-        - **Feature Importance:** Quickly identify which features are driving your model's predictions.
-        - **Local Explanations:** Understand individual predictions by seeing how each feature contributed.
-        - **Model Transparency:** Make informed decisions and communicate model behavior to stakeholders effectively.
+        - **SHAP Summary Plot:** Shows feature importance and impact on the model's predictions.
+            - **Higher SHAP Values:** Features have a strong positive impact.
+            - **Lower SHAP Values:** Features have a strong negative impact.
+        - **SHAP Dependence Plot:** Illustrates the relationship between a feature and the prediction.
+            - **X-axis:** Feature value.
+            - **Y-axis:** SHAP value (impact on prediction).
         """)
 
     except Exception as e:
-        st.warning(f"⚠️ SHAP could not be computed: {e}. Ensure SHAP is installed and try again.")
-        st.warning("If you're still encountering issues, consider the following steps:")
+        st.warning(f"⚠️ SHAP could not be computed: {e}. Ensure SHAP is installed correctly and compatible with your model.")
+        st.warning("**Troubleshooting Steps:**")
         st.markdown("""
         1. **Ensure SHAP is Installed Correctly:**
-            - Run `pip install shap` in your terminal.
+            - Run `pip install shap==0.41.0` in your terminal.
         2. **Check SHAP Version Compatibility:**
             - Some SHAP versions may have compatibility issues with certain models.
-            - You can install a specific version using `pip install shap==0.41.0`.
+            - Consider upgrading or downgrading SHAP as needed.
         3. **Restart the App:**
             - Sometimes, restarting the Streamlit app can resolve transient issues.
         """)
@@ -569,6 +553,7 @@ def run_lightgbm(X, y):
         )
     except Exception as e:
         st.error(f"❌ Error preparing download: {e}")
+
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
     Calculates and evaluates a Weighted Scoring Model and displays the results.
@@ -640,34 +625,41 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     if top_accounts.empty:
         st.warning("⚠️ No accounts to display based on the current selection.")
     else:
-        # Display accounts with emojis
-        for idx, row in top_accounts.iterrows():
-            emoji = adopter_emojis.get(row['Adopter_Category'], '')
-            st.markdown(f"""
-            **Rank {row['Rank']}:** {emoji} **{row['acct_name']}**  
-            - **Account Number:** {row['acct_numb']}  
-            - **Weighted Score:** {row['Weighted_Score']:.2f}  
-            - **Adopter Category:** {row['Adopter_Category']}  
-            - **{target_column}:** {row[target_column]}
-            """)
-            st.markdown("---")
+        # Add conditional formatting for better aesthetics
+        def highlight_category(row):
+            if row['Adopter_Category'] == 'Early Adopter':
+                return ['background-color: lightgreen'] * len(row)
+            elif row['Adopter_Category'] == 'Middle Adopter':
+                return ['background-color: lightyellow'] * len(row)
+            elif row['Adopter_Category'] == 'Late Adopter':
+                return ['background-color: lightcoral'] * len(row)
+            else:
+                return [''] * len(row)
 
-    # **Added Section: Understanding the Scores**
+        styled_top_accounts = top_accounts.style.apply(highlight_category, axis=1)
+        st.dataframe(styled_top_accounts, use_container_width=True)
+
+        st.markdown("""
+        **Interpretation:**
+        - **Weighted Score:** Represents the combined weighted importance of the selected features.
+        - **Rank:** Position of the account based on the weighted score.
+        - **Adopter Category:** Classification into Early, Middle, or Late Adopters.
+        
+        **How to Use This List:**
+        - **Prioritization:** Focus on Early Adopters for maximum impact.
+        - **Resource Allocation:** Allocate more resources to higher-ranked accounts.
+        - **Strategic Planning:** Inform your strategic and marketing decisions based on the rankings.
+        """)
+
+    # **Understanding the Scores**
     st.markdown("### 📄 **Understanding the Scores:**")
     st.markdown("""
-    - **Weighted Score:** This score represents the combined weighted importance of the selected features for each account. A higher score indicates a higher priority based on your assigned weights.
-    
-    - **Rank:** The position of the account in the leaderboard, with Rank 1 being the highest priority.
-    
+    - **Weighted Score:** This score is calculated by multiplying each selected feature by its assigned weight and summing the results. A higher score indicates a higher priority based on your weights.
+    - **Rank:** The order of accounts from highest to lowest based on the Weighted Score.
     - **Adopter Category:**
-        - **Early Adopter (🚀):** Accounts that rank in the top third based on the weighted score. These are your highest priority accounts.
-        - **Middle Adopter (⏳):** Accounts that rank in the middle third. They are important but not as critical as early adopters.
-        - **Late Adopter (🐢):** Accounts that rank in the bottom third. These are lower priority accounts.
-    
-    **How to Use These Scores:**
-    - **Prioritization:** Focus your efforts on **Early Adopters** to maximize impact.
-    - **Resource Allocation:** Allocate more resources to higher-ranked accounts to drive better outcomes.
-    - **Strategic Planning:** Use the scores and categories to inform your strategic decisions and marketing strategies.
+        - **Early Adopter (🚀):** Top third of accounts, highest priority.
+        - **Middle Adopter (⏳):** Middle third of accounts.
+        - **Late Adopter (🐢):** Bottom third of accounts, lower priority.
     """)
 
     # Provide download link for model results
@@ -681,6 +673,7 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         file_name='weighted_scoring_model_results.csv',
         mime='text/csv'
     )
+
 # Render the sidebar with step highlighting
 render_sidebar()
 
@@ -737,7 +730,6 @@ elif st.session_state.step == 1:
             'competition_sales_2022': [10000, 11000, 10500],
             'competition_units_2022': [100, 110, 105],
             'ProdA_sales_2023': [30000, 35000, 32000],
-            # 'Total_2022_and_2023' is intentionally omitted
             'ProdA_units_2023': [300, 350, 320],
             'competition_sales_2023': [15000, 16000, 15500],
             'competition_units_2023': [150, 160, 155],
@@ -783,6 +775,7 @@ elif st.session_state.step == 1:
 
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
+
 # Step 2: Select Independent Variables
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
@@ -825,6 +818,7 @@ elif st.session_state.step == 2:
                 st.write(f"- {feature}")
         else:
             st.warning("⚠️ Please select at least one independent variable.")
+
 # Step 3: Choose Model & Assign Weights
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
@@ -975,6 +969,7 @@ elif st.session_state.step == 3:
 
         else:
             st.info("Please select a model to proceed.")
+
 # Step 4: Display Results
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
