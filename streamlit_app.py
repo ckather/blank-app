@@ -12,6 +12,10 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import lightgbm as lgb
 import shap  # Ensure SHAP is installed: pip install shap
 
+# Suppress warnings for cleaner output
+import warnings
+warnings.filterwarnings('ignore')
+
 # Set the page configuration
 st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="wide")
 
@@ -39,7 +43,6 @@ if 'X' not in st.session_state:
 
 if 'y' not in st.session_state:
     st.session_state.y = None  # Preprocessed target
-
 # Function to reset the app to Start Here
 def reset_app():
     for key in list(st.session_state.keys()):
@@ -104,8 +107,7 @@ categorical_mappings = {
     'analog_3_adopt': {'low': 1, 'medium': 2, 'high': 3}
 }
 
-# Define helper functions
-
+# Helper Function: Encode Categorical Features
 def encode_categorical_features(df, mappings):
     """
     Encodes categorical features based on provided mappings.
@@ -118,6 +120,7 @@ def encode_categorical_features(df, mappings):
                 df[feature].fillna(df[feature].mode()[0], inplace=True)
     return df
 
+# Helper Function: Generate Account Adoption Rank Order
 def generate_account_adoption_rank(df):
     """
     Generates the 'Account Adoption Rank Order' based on total sales across different periods.
@@ -163,6 +166,7 @@ def generate_account_adoption_rank(df):
 
     return df
 
+# Helper Function: Preprocess Data (Cached)
 @st.cache_data(show_spinner=False)
 def preprocess_data_cached(df, selected_features):
     """
@@ -188,6 +192,7 @@ def preprocess_data_cached(df, selected_features):
 
     return X
 
+# Helper Function: Preprocess Target Variable (Cached)
 @st.cache_data(show_spinner=False)
 def preprocess_data_with_target_cached(df, target_column, X):
     """
@@ -197,7 +202,7 @@ def preprocess_data_with_target_cached(df, target_column, X):
     y = pd.to_numeric(y, errors='coerce')
     y = y.loc[X.index]  # Align y with X after preprocessing
     return y
-
+# Function to render the sidebar with step highlighting
 def render_sidebar():
     """
     Renders the instructions sidebar with step highlighting.
@@ -223,9 +228,6 @@ def render_sidebar():
     # Restart button in the sidebar with a unique key
     st.sidebar.markdown("---")
     st.sidebar.button("🔄 Restart", on_click=reset_app, key='restart_sidebar')
-
-# Define model functions
-
 def run_linear_regression(X, y):
     """
     Trains and evaluates a Linear Regression model using statsmodels.
@@ -305,7 +307,6 @@ def run_linear_regression(X, y):
         file_name='linear_regression_results.csv',
         mime='text/csv'
     )
-
 def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
@@ -428,8 +429,7 @@ def run_lightgbm(X, y):
     try:
         st.markdown("### 📋 **Rank-Ordered List of Account Adoption in 2025**")
 
-        # Assuming 'acct_numb' and 'acct_name' are in X_test
-        # If not, adjust accordingly
+        # Check if 'acct_numb' and 'acct_name' are in the original dataframe
         if 'acct_numb' in st.session_state.df.columns and 'acct_name' in st.session_state.df.columns:
             # Extract corresponding account identifiers from the original dataframe
             test_indices = X_test.index
@@ -452,7 +452,7 @@ def run_lightgbm(X, y):
         # Assign ranks
         adoption_predictions_sorted['Rank'] = adoption_predictions_sorted.index + 1
 
-        # Reorder columns
+        # Reorder columns for better display
         if 'acct_numb' in adoption_predictions_sorted.columns and 'acct_name' in adoption_predictions_sorted.columns:
             adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'acct_numb', 'acct_name', 'Predicted_Adoption_2025']]
             st.dataframe(adoption_predictions_sorted)
@@ -479,28 +479,82 @@ def run_lightgbm(X, y):
     # SHAP for Model Explainability
     try:
         st.markdown("### 🧠 **Model Explainability with SHAP**")
+        st.markdown("""
+        **What is SHAP?**
+
+        SHAP (SHapley Additive exPlanations) is a unified approach to explain the output of machine learning models. It connects optimal credit allocation with local explanations using concepts from cooperative game theory.
+
+        **Why Use SHAP?**
+
+        - **Interpretability:** Understand how each feature contributes to the model's predictions.
+        - **Transparency:** Gain insights into the decision-making process of complex models like LightGBM.
+        - **Trust:** Build trust in your model by explaining its predictions to stakeholders.
+        """)
+
         # Initialize SHAP explainer
-        explainer = shap.Explainer(best_lgbm, X_test)
+        explainer = shap.Explainer(best_lgbm, X_test, feature_names=X_test.columns)
         shap_values = explainer(X_test)
-        
+
         st.markdown("#### 📊 **SHAP Summary Plot**")
+        st.write("""
+        The **SHAP Summary Plot** provides a global view of feature importance and how each feature affects the model's predictions.
+
+        - **Feature Importance:** Features are ordered by their average impact on the model's predictions.
+        - **Feature Impact:** The position along the x-axis shows whether the effect of that value is associated with a higher or lower prediction.
+        - **Color Coding:** The color represents the feature value (red high, blue low).
+        """)
+        fig_summary, ax_summary = plt.subplots(figsize=(10, 6))
         shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
-        st.pyplot(bbox_inches='tight')
+        st.pyplot(fig_summary, bbox_inches='tight')
 
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
-        top_feature = best_lgbm.feature_importances_.argsort()[-1]  # Get the index of the top feature
-        top_feature_name = X.columns[top_feature]
-        shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
-        st.pyplot(bbox_inches='tight')
+        st.write("""
+        The **SHAP Dependence Plot** shows the relationship between a single feature and the target prediction, considering the interaction with other features.
+
+        - **X-axis:** Feature value.
+        - **Y-axis:** SHAP value (impact on prediction).
+        - **Color Coding:** Another feature that interacts with the feature being plotted.
+        """)
+
+        # Identify the top feature based on SHAP values
+        shap_abs_mean = np.abs(shap_values.values).mean(axis=0)
+        top_feature_index = np.argmax(shap_abs_mean)
+        top_feature_name = X_test.columns[top_feature_index]
+
+        fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
+        shap.dependence_plot(top_feature_name, shap_values.values, X_test, show=False)
+        st.pyplot(fig_dependence, bbox_inches='tight')
 
         st.markdown("""
-        **Interpretation:**
-        - **SHAP Summary Plot:** Provides a global view of feature impacts across all predictions.
-        - **SHAP Dependence Plot:** Shows how a specific feature affects the prediction and its interaction with other features.
+        **How to Interpret SHAP Plots:**
+
+        - **SHAP Summary Plot:**
+            - **Higher SHAP Values:** Indicate that the feature has a strong positive impact on the prediction.
+            - **Lower SHAP Values:** Indicate that the feature has a strong negative impact on the prediction.
+            - **Color Intensity:** Shows whether the feature value is high (red) or low (blue).
+
+        - **SHAP Dependence Plot:**
+            - **Trend:** Reveals how changes in the feature value affect the prediction.
+            - **Interaction:** Color coding can show interactions with other features, indicating combined effects.
+
+        **Benefits:**
+        - **Feature Importance:** Quickly identify which features are driving your model's predictions.
+        - **Local Explanations:** Understand individual predictions by seeing how each feature contributed.
+        - **Model Transparency:** Make informed decisions and communicate model behavior to stakeholders effectively.
         """)
 
     except Exception as e:
         st.warning(f"⚠️ SHAP could not be computed: {e}. Ensure SHAP is installed and try again.")
+        st.warning("If you're still encountering issues, consider the following steps:")
+        st.markdown("""
+        1. **Ensure SHAP is Installed Correctly:**
+            - Run `pip install shap` in your terminal.
+        2. **Check SHAP Version Compatibility:**
+            - Some SHAP versions may have compatibility issues with certain models.
+            - You can install a specific version using `pip install shap==0.41.0`.
+        3. **Restart the App:**
+            - Sometimes, restarting the Streamlit app can resolve transient issues.
+        """)
 
     # Provide download link for model results
     try:
@@ -515,7 +569,6 @@ def run_lightgbm(X, y):
         )
     except Exception as e:
         st.error(f"❌ Error preparing download: {e}")
-
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
     Calculates and evaluates a Weighted Scoring Model and displays the results.
@@ -628,7 +681,6 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         file_name='weighted_scoring_model_results.csv',
         mime='text/csv'
     )
-
 # Render the sidebar with step highlighting
 render_sidebar()
 
@@ -723,10 +775,14 @@ elif st.session_state.step == 1:
 
             # Display preprocessing messages below the title
             st.write(f"**Initial data rows:** {df.shape[0]}")
-            # Preprocessing will be done in the next steps, so these messages are moved
+            st.write(f"**Initial data columns:** {', '.join(df.columns)}")
+
+            # Display first few rows for confirmation
+            st.markdown("### 📊 **Preview of Uploaded Data:**")
+            st.dataframe(df.head())
+
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
-
 # Step 2: Select Independent Variables
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
@@ -769,7 +825,6 @@ elif st.session_state.step == 2:
                 st.write(f"- {feature}")
         else:
             st.warning("⚠️ Please select at least one independent variable.")
-
 # Step 3: Choose Model & Assign Weights
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
@@ -920,7 +975,6 @@ elif st.session_state.step == 3:
 
         else:
             st.info("Please select a model to proceed.")
-
 # Step 4: Display Results
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
