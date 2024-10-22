@@ -329,8 +329,8 @@ def run_lightgbm(X, y):
     st.write("**Any missing values in y?**", y.isnull().values.any())
 
     # Check if there are enough samples after preprocessing
-    if X.shape[0] < 100:
-        st.error("❌ Not enough data after preprocessing to train the model. Please ensure your dataset has at least 100 rows.")
+    if X.shape[0] < 200:
+        st.error("❌ Not enough data after preprocessing to train the LightGBM model. Please ensure your dataset has at least 200 rows.")
         return
 
     # Split the data into training and testing sets
@@ -459,7 +459,7 @@ def run_lightgbm(X, y):
             adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'Account_Index', 'Predicted_Adoption_2025']]
 
         # Add conditional formatting for better aesthetics
-        def highlight_top(row):
+        def highlight_category(row):
             if row['Rank'] == 1:
                 return ['background-color: gold'] * len(row)
             elif row['Rank'] == 2:
@@ -469,7 +469,7 @@ def run_lightgbm(X, y):
             else:
                 return [''] * len(row)
 
-        styled_df = adoption_predictions_sorted.style.apply(highlight_top, axis=1)
+        styled_df = adoption_predictions_sorted.style.apply(highlight_category, axis=1)
         st.dataframe(styled_df, use_container_width=True)
 
         st.markdown("""
@@ -500,22 +500,26 @@ def run_lightgbm(X, y):
         explainer = shap.Explainer(best_lgbm, X_test)
         shap_values = explainer(X_test)
 
-        # SHAP Summary Plot using Plotly for better aesthetics
+        # SHAP Summary Plot using matplotlib for better aesthetics
         st.markdown("#### 📊 **SHAP Summary Plot**")
         fig_summary, ax_summary = plt.subplots(figsize=(10, 6))
         shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
         st.pyplot(fig_summary, use_container_width=True)
 
-        # SHAP Dependence Plot using Plotly
+        # SHAP Dependence Plot using matplotlib
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
         # Identify the top feature based on SHAP values
         shap_abs_mean = np.abs(shap_values.values).mean(axis=0)
         top_feature_index = np.argmax(shap_abs_mean)
         top_feature_name = X_test.columns[top_feature_index]
 
-        fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
-        shap.dependence_plot(top_feature_name, shap_values.values, X_test, show=False)
-        st.pyplot(fig_dependence, use_container_width=True)
+        # Ensure the top feature exists and has variation
+        if top_feature_name in X_test.columns:
+            fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
+            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
+            st.pyplot(fig_dependence, use_container_width=True)
+        else:
+            st.warning(f"⚠️ Top feature '{top_feature_name}' not found in the data.")
 
         st.markdown("""
         **How to Interpret SHAP Plots:**
@@ -832,6 +836,13 @@ elif st.session_state.step == 3:
         selected_features = st.session_state.selected_features
 
         # Model selection and weight assignment interface
+
+        # Add a note about optimal data row sizes for each model
+        st.markdown("""
+        **📌 Optimal Data Row Recommendations:**
+        - **Linear Regression:** Best suited for datasets with **10-100 rows**.
+        - **LightGBM Regression:** Ideal for larger datasets with **200+ rows** as it leverages more data to train and predict effectively.
+        """)
 
         # Model Selection Buttons in the specified order
         col1, col2, col3 = st.columns(3)
