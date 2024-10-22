@@ -496,28 +496,30 @@ def run_lightgbm(X, y):
         SHAP (SHapley Additive exPlanations) is a unified approach to explain the output of machine learning models. It connects optimal credit allocation with local explanations using concepts from cooperative game theory.
         """)
 
-        # Initialize SHAP explainer
-        explainer = shap.Explainer(best_lgbm, X_test)
-        shap_values = explainer(X_test)
+        # Initialize SHAP explainer using TreeExplainer for LightGBM
+        explainer = shap.TreeExplainer(best_lgbm)
+        shap_values = explainer.shap_values(X_test)
 
         # SHAP Summary Plot using matplotlib for better aesthetics
         st.markdown("#### 📊 **SHAP Summary Plot**")
         fig_summary, ax_summary = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
+        shap.summary_plot(shap_values, X_test, plot_type="bar", show=False, ax=ax_summary)
         st.pyplot(fig_summary, use_container_width=True)
+        plt.clf()
 
         # SHAP Dependence Plot using matplotlib
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
         # Identify the top feature based on SHAP values
-        shap_abs_mean = np.abs(shap_values.values).mean(axis=0)
+        shap_abs_mean = np.abs(shap_values).mean(axis=0)
         top_feature_index = np.argmax(shap_abs_mean)
         top_feature_name = X_test.columns[top_feature_index]
 
         # Ensure the top feature exists and has variation
         if top_feature_name in X_test.columns:
             fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
-            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
+            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False, ax=ax_dependence)
             st.pyplot(fig_dependence, use_container_width=True)
+            plt.clf()
         else:
             st.warning(f"⚠️ Top feature '{top_feature_name}' not found in the data.")
 
@@ -835,14 +837,14 @@ elif st.session_state.step == 3:
         df = st.session_state.df
         selected_features = st.session_state.selected_features
 
-        # Model selection and weight assignment interface
-
         # Add a note about optimal data row sizes for each model
         st.markdown("""
         **📌 Optimal Data Row Recommendations:**
         - **Linear Regression:** Best suited for datasets with **10-100 rows**.
         - **LightGBM Regression:** Ideal for larger datasets with **200+ rows** as it leverages more data to train and predict effectively.
         """)
+
+        # Model selection and weight assignment interface
 
         # Model Selection Buttons in the specified order
         col1, col2, col3 = st.columns(3)
