@@ -268,7 +268,7 @@ def run_linear_regression(X, y):
     })
 
     st.write("**Coefficients:**")
-    st.dataframe(coef_df.style.highlight_max(axis=0, color='lightgreen'))
+    st.dataframe(coef_df)  # Removed the .style.highlight_max to eliminate highlighting
 
     st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
 
