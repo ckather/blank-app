@@ -507,30 +507,11 @@ def run_lightgbm(X, y):
         st.pyplot(fig_summary, use_container_width=True)
         plt.clf()  # Clear the figure after plotting
 
-        # SHAP Dependence Plot using matplotlib
-        st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
-        # Identify the top feature based on SHAP values
-        shap_abs_mean = np.abs(shap_values).mean(axis=0)
-        top_feature_index = np.argmax(shap_abs_mean)
-        top_feature_name = X_test.columns[top_feature_index]
-
-        # Ensure the top feature exists and has variation
-        if top_feature_name in X_test.columns:
-            fig_dependence = plt.figure(figsize=(10, 6))
-            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
-            st.pyplot(fig_dependence, use_container_width=True)
-            plt.clf()  # Clear the figure after plotting
-        else:
-            st.warning(f"⚠️ Top feature '{top_feature_name}' not found in the data.")
-
         st.markdown("""
         **How to Interpret SHAP Plots:**
         - **SHAP Summary Plot:** Shows feature importance and impact on the model's predictions.
             - **Higher SHAP Values:** Features have a strong positive impact.
             - **Lower SHAP Values:** Features have a strong negative impact.
-        - **SHAP Dependence Plot:** Illustrates the relationship between a feature and the prediction.
-            - **X-axis:** Feature value.
-            - **Y-axis:** SHAP value (impact on prediction).
         """)
 
     except Exception as e:
