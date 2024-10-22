@@ -309,12 +309,7 @@ def run_linear_regression(X, y):
 def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
-    Includes:
-    - Optional Hyperparameter tuning
-    - Cross-validation
-    - Additional evaluation metrics
-    - Residual analysis
-    - SHAP for model explainability
+    Outputs a rank-ordered list of account adoption in 2025 based on selected variables.
     """
     st.subheader("⚡ LightGBM Regression Results")
 
@@ -325,8 +320,11 @@ def run_lightgbm(X, y):
     X = X.replace([np.inf, -np.inf], np.nan).dropna()
     y = y.loc[X.index]  # Align y with X after dropping rows
 
-    # Display number of samples after preprocessing
-    st.write(f"**Number of samples after preprocessing:** {X.shape[0]}")
+    # Debugging: Check data
+    st.write("**Shape of X:**", X.shape)
+    st.write("**Shape of y:**", y.shape)
+    st.write("**Any missing values in X?**", X.isnull().values.any())
+    st.write("**Any missing values in y?**", y.isnull().values.any())
 
     # Check if there are enough samples after preprocessing
     if X.shape[0] < 100:
@@ -368,16 +366,24 @@ def run_lightgbm(X, y):
         )
 
         with st.spinner("🔄 Performing Optimized Randomized Search for Hyperparameter Tuning..."):
-            randomized_search.fit(X_train, y_train)
-            best_lgbm = randomized_search.best_estimator_
-            st.write(f"**Best Parameters:** {randomized_search.best_params_}")
+            try:
+                randomized_search.fit(X_train, y_train)
+                best_lgbm = randomized_search.best_estimator_
+                st.write(f"**Best Parameters:** {randomized_search.best_params_}")
+            except Exception as e:
+                st.error(f"❌ Error during hyperparameter tuning: {e}")
+                return
 
         # Cross-Validation Scores
         st.markdown("### 📊 **Cross-Validation Performance**")
-        cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3, scoring='neg_mean_squared_error', n_jobs=-1)
-        cv_mse = -cv_scores.mean()
-        cv_std = cv_scores.std()
-        st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
+        try:
+            cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3, scoring='neg_mean_squared_error', n_jobs=-1)
+            cv_mse = -cv_scores.mean()
+            cv_std = cv_scores.std()
+            st.write(f"**Cross-Validated MSE:** {cv_mse:.2f} ± {cv_std:.2f}")
+        except Exception as e:
+            st.error(f"❌ Error during cross-validation: {e}")
+            return
     else:
         # Initialize LightGBM with default or pre-set parameters
         best_lgbm = lgb.LGBMRegressor(
@@ -391,70 +397,88 @@ def run_lightgbm(X, y):
             n_jobs=-1
         )
         with st.spinner("⚙️ Training LightGBM model with default parameters..."):
-            best_lgbm.fit(X_train, y_train)
-        st.info("Hyperparameter tuning was skipped. Default parameters were used.")
+            try:
+                best_lgbm.fit(X_train, y_train)
+                st.success("Model trained successfully!")
+            except Exception as e:
+                st.error(f"❌ Error during model training: {e}")
+                return
 
-    # Train the best model on the entire training set with early stopping if hyperparameter tuning was performed
-    if perform_hyperparameter_tuning:
-        with st.spinner("⚙️ Training the best LightGBM model with early stopping..."):
-            best_lgbm.fit(
-                X_train, y_train,
-                eval_set=[(X_test, y_test)],
-                eval_metric='rmse',
-                early_stopping_rounds=30,       # Reduced from 50 to 30
-                verbose=False
-            )
-
-    predictions = best_lgbm.predict(X_test)
+    # Proceed with predictions and generate ranked list
+    try:
+        predictions = best_lgbm.predict(X_test)
+    except Exception as e:
+        st.error(f"❌ Error during prediction: {e}")
+        return
 
     # Evaluation Metrics
-    mse = mean_squared_error(y_test, predictions)
-    mae = mean_absolute_error(y_test, predictions)
-    r2 = r2_score(y_test, predictions)
+    try:
+        mse = mean_squared_error(y_test, predictions)
+        mae = mean_absolute_error(y_test, predictions)
+        r2 = r2_score(y_test, predictions)
 
-    st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
-    st.write(f"**Mean Absolute Error (MAE):** {mae:.2f}")
-    st.write(f"**R² Score:** {r2:.4f}")
+        st.write(f"**Mean Squared Error (MSE):** {mse:.2f}")
+        st.write(f"**Mean Absolute Error (MAE):** {mae:.2f}")
+        st.write(f"**R² Score:** {r2:.4f}")
+    except Exception as e:
+        st.error(f"❌ Error calculating evaluation metrics: {e}")
+        return
 
-    # Plot Feature Importances
-    st.markdown("### 📈 **Feature Importances**")
-    feature_importances = pd.Series(best_lgbm.feature_importances_, index=X.columns).sort_values(ascending=False)
+    # Generate Rank-Ordered List of Account Adoption in 2025
+    try:
+        st.markdown("### 📋 **Rank-Ordered List of Account Adoption in 2025**")
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    feature_importances.plot(kind='bar', ax=ax, color='skyblue')
-    ax.set_title("Feature Importances")
-    ax.set_xlabel("Features")
-    ax.set_ylabel("Importance Score")
-    st.pyplot(fig)
+        # Assuming 'acct_numb' and 'acct_name' are in X_test
+        # If not, adjust accordingly
+        if 'acct_numb' in st.session_state.df.columns and 'acct_name' in st.session_state.df.columns:
+            # Extract corresponding account identifiers from the original dataframe
+            test_indices = X_test.index
+            test_accounts = st.session_state.df.loc[test_indices, ['acct_numb', 'acct_name']].reset_index(drop=True)
+            adoption_predictions = pd.DataFrame({
+                'acct_numb': test_accounts['acct_numb'],
+                'acct_name': test_accounts['acct_name'],
+                'Predicted_Adoption_2025': predictions
+            })
+        else:
+            # If account identifiers are not present, use indices
+            adoption_predictions = pd.DataFrame({
+                'Account_Index': X_test.index,
+                'Predicted_Adoption_2025': predictions
+            })
 
-    st.markdown("""
-    **Interpretation:**
-    - **Feature Importances** indicate how much each feature contributes to the model's predictions.
-    - Higher bars represent more influential features.
-    - Focus on top features for strategic decision-making.
-    """)
+        # Sort the accounts based on predicted adoption in descending order
+        adoption_predictions_sorted = adoption_predictions.sort_values(by='Predicted_Adoption_2025', ascending=False).reset_index(drop=True)
 
-    # Plot Actual vs Predicted
-    st.markdown("### 📊 **Actual vs. Predicted Values**")
-    fig2 = px.scatter(
-        x=y_test,
-        y=predictions,
-        labels={'x': 'Actual', 'y': 'Predicted'},
-        title=f'Actual vs Predicted {y.name}',
-        trendline="ols"
-    )
-    st.plotly_chart(fig2)
+        # Assign ranks
+        adoption_predictions_sorted['Rank'] = adoption_predictions_sorted.index + 1
 
-    st.markdown("""
-    **Interpretation:**
-    - **Scatter Plot** compares actual values against the model's predictions.
-    - Points close to the diagonal red dashed line (`y = x`) indicate accurate predictions.
-    - Dispersion around the line helps assess prediction variability.
-    """)
+        # Reorder columns
+        if 'acct_numb' in adoption_predictions_sorted.columns and 'acct_name' in adoption_predictions_sorted.columns:
+            adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'acct_numb', 'acct_name', 'Predicted_Adoption_2025']]
+            st.dataframe(adoption_predictions_sorted)
+        else:
+            adoption_predictions_sorted = adoption_predictions_sorted[['Rank', 'Account_Index', 'Predicted_Adoption_2025']]
+            st.dataframe(adoption_predictions_sorted)
+
+        st.markdown("""
+        **Interpretation:**
+        - **Rank:** Position of the account based on predicted adoption in 2025 (1 being the highest).
+        - **Account Number / Name:** Identifier for each account.
+        - **Predicted Adoption 2025:** The model's prediction of how much the account will adopt or perform in 2025 based on selected variables.
+        
+        **How to Use This List:**
+        - **Prioritization:** Focus your efforts on higher-ranked accounts to maximize impact.
+        - **Resource Allocation:** Allocate more resources to top accounts to drive better outcomes.
+        - **Strategic Planning:** Use the rankings to inform your strategic decisions and marketing strategies.
+        """)
+
+    except Exception as e:
+        st.error(f"❌ Error generating ranked list: {e}")
+        return
 
     # SHAP for Model Explainability
-    st.markdown("### 🧠 **Model Explainability with SHAP**")
     try:
+        st.markdown("### 🧠 **Model Explainability with SHAP**")
         # Initialize SHAP explainer
         explainer = shap.Explainer(best_lgbm, X_test)
         shap_values = explainer(X_test)
@@ -464,27 +488,33 @@ def run_lightgbm(X, y):
         st.pyplot(bbox_inches='tight')
 
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
-        top_feature = feature_importances.index[0]
-        shap.dependence_plot(top_feature, shap_values, X_test, show=False)
+        top_feature = best_lgbm.feature_importances_.argsort()[-1]  # Get the index of the top feature
+        top_feature_name = X.columns[top_feature]
+        shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
         st.pyplot(bbox_inches='tight')
+
+        st.markdown("""
+        **Interpretation:**
+        - **SHAP Summary Plot:** Provides a global view of feature impacts across all predictions.
+        - **SHAP Dependence Plot:** Shows how a specific feature affects the prediction and its interaction with other features.
+        """)
+
     except Exception as e:
         st.warning(f"⚠️ SHAP could not be computed: {e}. Ensure SHAP is installed and try again.")
 
     # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    # Prepare data for download
-    results_df = pd.DataFrame({
-        'Actual': y_test,
-        'Predicted': predictions,
-        'Residual': y_test - predictions
-    })
-    download_data = results_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download Results as CSV",
-        data=download_data,
-        file_name='lightgbm_results.csv',
-        mime='text/csv'
-    )
+    try:
+        st.markdown("### 💾 **Download Model Results**")
+        # Prepare data for download
+        download_data = adoption_predictions_sorted.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download Ranked Adoption List as CSV",
+            data=download_data,
+            file_name='lightgbm_ranked_adoption_2025.csv',
+            mime='text/csv'
+        )
+    except Exception as e:
+        st.error(f"❌ Error preparing download: {e}")
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
