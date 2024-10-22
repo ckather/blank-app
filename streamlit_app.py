@@ -502,10 +502,10 @@ def run_lightgbm(X, y):
 
         # SHAP Summary Plot using matplotlib for better aesthetics
         st.markdown("#### 📊 **SHAP Summary Plot**")
-        fig_summary, ax_summary = plt.subplots(figsize=(10, 6))
-        shap.summary_plot(shap_values, X_test, plot_type="bar", show=False, ax=ax_summary)
+        fig_summary = plt.figure(figsize=(10, 6))
+        shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
         st.pyplot(fig_summary, use_container_width=True)
-        plt.clf()
+        plt.clf()  # Clear the figure after plotting
 
         # SHAP Dependence Plot using matplotlib
         st.markdown("#### 🔍 **SHAP Dependence Plot for Top Feature**")
@@ -516,10 +516,10 @@ def run_lightgbm(X, y):
 
         # Ensure the top feature exists and has variation
         if top_feature_name in X_test.columns:
-            fig_dependence, ax_dependence = plt.subplots(figsize=(10, 6))
-            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False, ax=ax_dependence)
+            fig_dependence = plt.figure(figsize=(10, 6))
+            shap.dependence_plot(top_feature_name, shap_values, X_test, show=False)
             st.pyplot(fig_dependence, use_container_width=True)
-            plt.clf()
+            plt.clf()  # Clear the figure after plotting
         else:
             st.warning(f"⚠️ Top feature '{top_feature_name}' not found in the data.")
 
