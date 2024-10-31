@@ -21,7 +21,7 @@ st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="
 
 # Initialize session state variables for navigation and selections
 if 'step' not in st.session_state:
-    st.session_state.step = 0  # Current step: 0 to 4 (Start Here to Results)
+    st.session_state.step = 0  # Current step: 0 to 5 (Start Here to Results + Demo)
 
 if 'df' not in st.session_state:
     st.session_state.df = None  # Uploaded DataFrame
@@ -44,6 +44,9 @@ if 'X' not in st.session_state:
 if 'y' not in st.session_state:
     st.session_state.y = None  # Preprocessed target
 
+if 'header_row' not in st.session_state:
+    st.session_state.header_row = None  # Row number containing headers
+
 # Function to reset the app to Start Here
 def reset_app():
     for key in list(st.session_state.keys()):
@@ -60,7 +63,7 @@ def next_step():
         st.session_state.step += 1
     elif st.session_state.step == 1:
         if st.session_state.df is None:
-            st.error("⚠️ Please upload a CSV file before proceeding.")
+            st.error("⚠️ Please upload a CSV or Excel file before proceeding.")
         else:
             st.session_state.step += 1
     elif st.session_state.step == 2:
@@ -204,23 +207,25 @@ def preprocess_data_with_target_cached(df, target_column, X):
     y = y.loc[X.index]  # Align y with X after preprocessing
     return y
 
-# Function to render the sidebar with step highlighting
+# Function to render the sidebar with step highlighting and Demo tab
 def render_sidebar():
     """
-    Renders the instructions sidebar with step highlighting.
+    Renders the instructions sidebar with step highlighting and a Demo tab.
     """
     step_titles = [
         "Start Here",
-        "Step 1: Upload CSV File",
+        "Step 1: Upload CSV/Excel File",
         "Step 2: Select Independent Variables",
         "Step 3: Choose Model & Assign Weights",
-        "Step 4: Your Results"
+        "Step 4: Your Results",
+        "Demo"  # New Demo tab added
     ]
 
     current_step = st.session_state.step
 
     st.sidebar.title("📖 Navigation")
 
+    # Display step titles with highlighting
     for i, title in enumerate(step_titles):
         if i == current_step:
             st.sidebar.markdown(f"### ✅ **{title}**")
@@ -606,7 +611,13 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     st.markdown("### 🏆 **Leaderboard of Accounts**")
     top_n = st.slider("Select number of top accounts to display", min_value=5, max_value=50, value=10, step=1, key='top_n_slider')
 
-    top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+    # Assuming 'acct_numb' and 'acct_name' exist, else use indices
+    if 'acct_numb' in df_encoded.columns and 'acct_name' in df_encoded.columns:
+        top_accounts = df_encoded[['acct_numb', 'acct_name', 'Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+    else:
+        top_accounts = df_encoded[['Weighted_Score', 'Rank', 'Adopter_Category', target_column]].sort_values(by='Weighted_Score', ascending=False).head(top_n)
+        top_accounts = top_accounts.reset_index(drop=True)
+        top_accounts.index += 1  # Start index at 1
 
     # Check if top_accounts is empty
     if top_accounts.empty:
@@ -661,12 +672,22 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
         mime='text/csv'
     )
 
-# Render the sidebar with step highlighting
+# Demo Tab Placeholder Function
+def run_demo():
+    """
+    Placeholder for the Demo tab. Future implementation can include video uploads or demonstrations.
+    """
+    st.title("🎥 Demo")
+    st.markdown("""
+    ### **Coming Soon!**
+
+    Stay tuned for a comprehensive demonstration of the **💊 Behavior Prediction Platform 💊**. We'll showcase how to use the platform effectively to gain valuable insights and make informed decisions.
+    """)
+
+# Render the sidebar with step highlighting and Demo tab
 render_sidebar()
 
 # Main app logic based on current step
-
-# Step 0: Start Here Page
 if st.session_state.step == 0:
     st.title("💊 Behavior Prediction Platform 💊")
     st.markdown("""
@@ -683,7 +704,7 @@ if st.session_state.step == 0:
 
     **How It Works:**
 
-    1. **Upload Your Data**: Bring in your CSV file containing the data you want to analyze.
+    1. **Upload Your Data**: Bring in your CSV or Excel file containing the data you want to analyze.
     2. **Select Variables**: Choose the factors (independent variables) you think influence your outcome.
     3. **Choose a Model**: Pick from Linear Regression, Weighted Scoring, or LightGBM.
     4. **Get Results**: View insights, charts, and download detailed reports.
@@ -697,10 +718,9 @@ if st.session_state.step == 0:
     Ready to dive in? Click **Next** to get started!
     """)
 
-# Step 1: Upload CSV and Download Template
 elif st.session_state.step == 1:
     st.title("💊 Behavior Prediction Platform 💊")
-    st.subheader("Step 1: Upload Your CSV File")
+    st.subheader("Step 1: Upload Your CSV/Excel File")
 
     # Provide the download button for the CSV template
     st.download_button(
@@ -735,39 +755,104 @@ elif st.session_state.step == 1:
     # Add some space
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # File uploader
+    # File uploader allowing CSV and Excel files
     uploaded_file = st.file_uploader(
-        "Choose your CSV file:", type="csv", label_visibility="visible"
+        "Choose your CSV or Excel file:", type=["csv", "xlsx"], label_visibility="visible"
     )
 
     # Process the uploaded file
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file)
-            st.session_state.df = df  # Store in session state
+            file_type = uploaded_file.type
+            if uploaded_file.type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                # Handle Excel files
+                excel = pd.ExcelFile(uploaded_file)
+                sheets = excel.sheet_names
 
-            # Check and generate 'Account Adoption Rank Order'
-            df = generate_account_adoption_rank(df)
-            st.session_state.df = df  # Update in session state
+                if len(sheets) > 1:
+                    # If multiple sheets, prompt user to select one
+                    selected_sheet = st.selectbox(
+                        "Select the sheet you want to upload:",
+                        options=sheets,
+                        key='sheet_selection'
+                    )
+                else:
+                    selected_sheet = sheets[0]
 
-            st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
+                df = pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=None)
+            else:
+                # Handle CSV files
+                df = pd.read_csv(uploaded_file, header=None)
 
-            # Display preprocessing messages below the title
-            st.write(f"**Initial data rows:** {df.shape[0]}")
-            st.write(f"**Initial data columns:** {', '.join(df.columns)}")
-
-            # Display first few rows for confirmation
+            # Display the first few rows for user to verify
             st.markdown("### 📊 **Preview of Uploaded Data:**")
             st.dataframe(df.head())
+
+            # Attempt to detect the header row containing account names
+            possible_header_rows = []
+            for idx, row in df.iterrows():
+                # Check if the row has a high proportion of string values (e.g., > 70%)
+                text_count = row.apply(lambda x: isinstance(x, str)).sum()
+                total_count = len(row)
+                if total_count == 0:
+                    continue
+                proportion = text_count / total_count
+                if proportion > 0.7:
+                    possible_header_rows.append(idx)
+
+            if possible_header_rows:
+                # If multiple possible header rows, let user choose
+                if len(possible_header_rows) == 1:
+                    header_row = possible_header_rows[0]
+                    st.session_state.header_row = header_row
+                    st.success(f"✅ Automatically detected header row at index **{header_row}**.")
+                else:
+                    header_row = st.selectbox(
+                        "Multiple header rows detected. Please select the correct header row:",
+                        options=possible_header_rows,
+                        key='header_row_selection'
+                    )
+                    st.session_state.header_row = header_row
+                    st.success(f"✅ You have selected header row at index **{header_row}**.")
+            else:
+                # If no header row detected, prompt user to specify
+                header_row = st.number_input(
+                    "No header row detected. Please enter the row number (0-indexed) that contains the account names:",
+                    min_value=0,
+                    max_value=len(df)-1,
+                    value=0,
+                    step=1,
+                    key='manual_header_row'
+                )
+                st.session_state.header_row = header_row
+                st.info(f"⚠️ You have specified header row at index **{header_row}**.")
+
+            # Now, set the header and process the DataFrame
+            if st.session_state.header_row is not None:
+                df = pd.read_csv(uploaded_file, header=st.session_state.header_row) if file_type != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" else pd.read_excel(uploaded_file, sheet_name=selected_sheet, header=st.session_state.header_row)
+                st.session_state.df = df  # Store in session state
+
+                # Check and generate 'Account Adoption Rank Order'
+                df = generate_account_adoption_rank(df)
+                st.session_state.df = df  # Update in session state
+
+                st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
+
+                # Display preprocessing messages below the title
+                st.write(f"**Initial data rows:** {df.shape[0]}")
+                st.write(f"**Initial data columns:** {', '.join(df.columns)}")
+
+                # Display first few rows for confirmation
+                st.markdown("### 📊 **Preview of Processed Data:**")
+                st.dataframe(df.head())
 
         except Exception as e:
             st.error(f"❌ An error occurred while processing the file: {e}")
 
-# Step 2: Select Independent Variables
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
     if 'df' not in st.session_state or st.session_state.df is None:
-        st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV file.")
+        st.warning("⚠️ No data found. Please go back to Step 1 and upload your CSV or Excel file.")
     else:
         df = st.session_state.df
         st.subheader("Step 2: Select Independent Variables")
@@ -806,7 +891,6 @@ elif st.session_state.step == 2:
         else:
             st.warning("⚠️ Please select at least one independent variable.")
 
-# Step 3: Choose Model & Assign Weights
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 3: Choose Model & Assign Weights")
@@ -964,7 +1048,6 @@ elif st.session_state.step == 3:
         else:
             st.info("Please select a model to proceed.")
 
-# Step 4: Display Results
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 4: Your Results")
@@ -1006,8 +1089,12 @@ elif st.session_state.step == 4:
         with col2:
             st.button("🔄 Restart", on_click=reset_app, key='restart_main')
 
-# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 0-3)
-if st.session_state.step < 4:
+elif st.session_state.step == 5:
+    # Demo Tab Placeholder
+    run_demo()
+
+# Navigation buttons at the bottom with unique keys and on_click callbacks (for steps 0-4)
+if st.session_state.step < 5:
     st.markdown("<br>", unsafe_allow_html=True)
     col1, col2 = st.columns([1, 1])
     with col1:
