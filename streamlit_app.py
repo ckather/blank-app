@@ -67,7 +67,20 @@ def next_step():
             st.error("⚠️ Please select at least one independent variable before proceeding.")
         else:
             st.session_state.step += 1
-    elif st.session_state.step == 3:        st.title("ðŸ’Š Behavior Prediction Platform ðŸ’Š")        df = st.session_state.df         else:            st.subheader("Step 3: Choose Model & Assign Weights")            st.markdown("**Optimal Data Rows:** Linear 10â€“100, LightGBM â‰¥200")            col1, col2, col3 = st.columns(3)            with col1:                if st.button("Run Linear Regression", key='model_linear_regression'):                    select_linear_regression()            with col2:                if st.button("Run Weighted Scoring", key='model_weighted_scoring'):                    select_weighted_scoring()            with col3:                if st.button("Run LightGBM", key='model_lightgbm'):                    select_lightgbm()            if st.session_state.selected_model in ['linear_regression', 'lightgbm']:                st.info("Select your dependent variable:")                targets = [c for c in df.columns if c not in ['acct_numb','acct_name'] + sel]                tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')                if tgt:                    st.session_state.target_column = tgt                    st.success(f"âœ… You have selected **tgt** as your dependent variable.")            elif st.session_state.selected_model == 'weighted_scoring_model':                st.info("Assign weights (sum must equal 10):")                feature_weights =                 for feature in sel:                    w = st.number_input(f"Weight for **feature**:", 0.0, 10.0, 0.0, 0.5, key=f"weight_feature")    elif st.session_state.step < 5:
+    elif st.session_state.step == 3:
+        if st.session_state.selected_model is None:
+            st.error("⚠️ Please select a model before proceeding.")
+            return
+        if st.session_state.selected_model in ['linear_regression', 'lightgbm']:
+            if not st.session_state.target_column:
+                st.error("⚠️ Please select a dependent variable before proceeding.")
+                return
+            st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
+            st.session_state.y = preprocess_data_with_target_cached(st.session_state.df, st.session_state.target_column, st.session_state.X)
+        elif st.session_state.selected_model == 'weighted_scoring_model':
+            st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
+        st.session_state.step += 1
+    elif st.session_state.step < 5:
         st.session_state.step += 1
 
 # Function to go back to the previous step
@@ -587,7 +600,52 @@ elif st.session_state.step == 2:
             st.session_state.selected_features = selected
             st.success(f"✅ You have selected {len(selected)} independent variables.")
 
-elif st.session_state.step == 3:    st.title("ðŸ’Š Behavior Prediction Platform ðŸ’Š")    df = st.session_state.df    sel = st.sader("Step 3: Choose Model & Assign Weights")        st.markdown("**Optimal Data Rows:** Linear 10â€“100, LightGBM â‰¥200")        col1, col2, col3 = st.columns(3)        with col1:            if st.button("Run Linear Regression", key='model_linear'):                select_linear_regression()        with col2:            if st.button("Run Weighted Scoring", key='model_weighted'):                select_weighted_scoring()        with col3:            if st.button("Run LightGBM", key='model_lightgbm'):                select_lightgbm()        # For regression models, select dependent variable        if st.session_state.selected_model in ['linear_regression', 'lightgbm']:            st.info("Select your dependent variable:")            targets = [c for c in df.columns if c not in ['acct_numb', 'acct_name'] + sel]            tgt = st.selectbox(                "Choose dependent variable:",                options=targets,                key='target_variable_selection'            )            if tgt:                st.session_state.target_column = tgt                st.success(f"âœ… You have selected **tgt** as your dependent variable.")        # For weighted scoring, assign feature weights        elif st.session_state.selected_model == 'weighted_scoring_model':            st.info("Assign weights to features (sum must equal 10):")            feature_weights =             for feature in sel:                w = st.number_input(                    f"Weight for **feature**:",                    min_value=0.0,                    max_value=10.0,                    value=0.0,                    step=0.5,                    key=f"weight_feature"                )                feature_weights[feature] = w            total_weight = sum(feature_weights.values())            st.markdown(f"**Total weight:** total_weightomatically.")                normalized_weights = f: (w/total_weight)*10 for f, w in feature_weights.items()            else:                normalized_weights = feature_weights            st.session_state.normalized_weights = normalized_weights            # Display normalized weights            if normalized_weights:                df_norm = pd.DataFrame(                    'Feature': list(normalized_weights.keys()),                    'Weight': [round(v,2) for v in normalized_weights.values()]                )                st.write("**Normalized Weights:**")                st.dataframe(df_norm)elif st.session_state.step == 4:
+elif st.session_state.step == 3:
+    st.title("💊 Behavior Prediction Platform 💊")
+    sel = st.session_state.selected_features
+    if not sel:
+        st.warning("⚠️ Please select features first.")
+    else:
+        st.subheader("Step 3: Choose Model & Assign Weights")
+        st.markdown("**Optimal Data Rows:** Linear 10–100, LightGBM ≥200")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("Run Linear Regression", key='model_lr'):
+                select_linear_regression()
+        with c2:
+            if st.button("Run Weighted Scoring", key='model_ws'):
+                select_weighted_scoring()
+        with c3:
+            if st.button("Run LightGBM", key='model_lgb'):
+                select_lightgbm()
+
+        if st.session_state.selected_model in ['linear_regression','lightgbm']:
+            st.info("Select your dependent variable:")
+            targets = [c for c in df.columns if c not in ['acct_numb','acct_name']+sel]
+            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
+            if tgt:
+                st.session_state.target_column = tgt
+                st.success(f"✅ You have selected **{tgt}** as your dependent variable.")
+        elif st.session_state.selected_model == 'weighted_scoring_model':
+            st.info("Assign weights (sum must equal 10):")
+            feature_weights = {}
+            for feature in sel:
+                w = st.number_input(f"Weight for **{feature}**:", 0.0, 10.0, 0.0, 0.5, key=f"weight_{feature}")
+                feature_weights[feature] = w
+            total_weight = sum(feature_weights.values())
+            st.markdown(f"**Total weight:** {total_weight}")
+            if total_weight > 0:
+                normalized = {f: (w/total_weight)*10 for f,w in feature_weights.items()}
+            else:
+                normalized = {}
+            if normalized:
+                st.session_state.normalized_weights = normalized
+                st.dataframe(pd.DataFrame({
+                    'Feature': list(normalized.keys()),
+                    'Weight': [round(v,2) for v in normalized.values()]
+                }))
+
+elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     model = st.session_state.selected_model
     if model == 'linear_regression':
@@ -618,3 +676,4 @@ if st.session_state.step < 5:
             st.button("← Back", on_click=prev_step)
     with b2:
         st.button("Next →", on_click=next_step)
+
