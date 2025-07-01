@@ -27,21 +27,21 @@ st.set_page_config(page_title="💊 Behavior Prediction Platform 💊", layout="
 if 'step' not in st.session_state:
     st.session_state.step = 0  # Current step: 0 to 5 (Start Here to Results + Demo)
 if 'df' not in st.session_state:
-    st.session_state.df = None
+    st.session_state.df = None  # Uploaded DataFrame
 if 'target_column' not in st.session_state:
-    st.session_state.target_column = None
+    st.session_state.target_column = None  # User-selected target variable
 if 'selected_features' not in st.session_state:
-    st.session_state.selected_features = []
+    st.session_state.selected_features = []  # Selected independent variables
 if 'selected_model' not in st.session_state:
-    st.session_state.selected_model = None
+    st.session_state.selected_model = None  # Selected model
 if 'normalized_weights' not in st.session_state:
-    st.session_state.normalized_weights = None
+    st.session_state.normalized_weights = None  # Normalized weights
 if 'X' not in st.session_state:
-    st.session_state.X = None
+    st.session_state.X = None  # Preprocessed features
 if 'y' not in st.session_state:
-    st.session_state.y = None
+    st.session_state.y = None  # Preprocessed target
 if 'header_row' not in st.session_state:
-    st.session_state.header_row = None
+    st.session_state.header_row = None  # Row number containing headers
 
 # Function to reset the app to Start Here
 def reset_app():
@@ -105,6 +105,9 @@ categorical_mappings = {
 
 # Helper Function: Encode Categorical Features
 def encode_categorical_features(df, mappings):
+    """
+    Encodes categorical features based on provided mappings.
+    """
     for feature, mapping in mappings.items():
         if feature in df.columns:
             df[feature] = df[feature].map(mapping)
@@ -115,6 +118,10 @@ def encode_categorical_features(df, mappings):
 
 # Helper Function: Generate Account Adoption Rank Order
 def generate_account_adoption_rank(df):
+    """
+    Generates the 'Account Adoption Rank Order' based on total sales across different periods.
+    If 'Total_2022_and_2023' is missing, it calculates it using available sales columns.
+    """
     sales_columns = [
         'ProdA_sales_first12',
         'ProdA_sales_2022',
@@ -123,6 +130,7 @@ def generate_account_adoption_rank(df):
         'competition_sales_2022',
         'competition_sales_2023'
     ]
+
     if 'Total_2022_and_2023' not in df.columns:
         required_for_total = ['ProdA_sales_2022', 'ProdA_sales_2023', 'competition_sales_2022', 'competition_sales_2023']
         missing_total_cols = [col for col in required_for_total if col not in df.columns]
@@ -133,12 +141,14 @@ def generate_account_adoption_rank(df):
         st.info("'Total_2022_and_2023' column was missing and has been computed automatically.")
     else:
         st.info("'Total_2022_and_2023' column found in the uploaded file.")
+
     if 'Total_2022_and_2023' not in sales_columns:
         sales_columns.append('Total_2022_and_2023')
     missing_columns = [col for col in sales_columns if col not in df.columns]
     if missing_columns:
         st.error(f"❌ The following required columns are missing to generate 'Account Adoption Rank Order': {', '.join(missing_columns)}")
         st.stop()
+
     df['Total_Sales'] = df[sales_columns].sum(axis=1)
     df['Account Adoption Rank Order'] = df['Total_Sales'].rank(method='dense', ascending=False).astype(int)
     return df
@@ -146,6 +156,9 @@ def generate_account_adoption_rank(df):
 # Helper Function: Preprocess Data (Cached)
 @st.cache_data(show_spinner=False)
 def preprocess_data_cached(df, selected_features):
+    """
+    Preprocesses the data and caches the result to speed up the app.
+    """
     X = df[selected_features].copy()
     selected_categorical = [col for col in selected_features if df[col].dtype == 'object']
     if selected_categorical:
@@ -161,6 +174,9 @@ def preprocess_data_cached(df, selected_features):
 # Helper Function: Preprocess Target Variable (Cached)
 @st.cache_data(show_spinner=False)
 def preprocess_data_with_target_cached(df, target_column, X):
+    """
+    Preprocesses the target variable and aligns it with X.
+    """
     y = df[target_column]
     y = pd.to_numeric(y, errors='coerce')
     y = y.loc[X.index]
@@ -168,6 +184,9 @@ def preprocess_data_with_target_cached(df, target_column, X):
 
 # Function to render the sidebar with step highlighting and Demo tab
 def render_sidebar():
+    """
+    Renders the instructions sidebar with step highlighting and a Demo tab.
+    """
     step_titles = [
         "Start Here",
         "Step 1: Upload CSV/Excel File",
@@ -186,7 +205,9 @@ def render_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.button("🔄 Restart", on_click=reset_app, key='restart_sidebar')
 
+# -------------------------------------------------------------------------------
 # Model Functions
+# -------------------------------------------------------------------------------
 
 def run_linear_regression(X, y):
     """
@@ -194,41 +215,31 @@ def run_linear_regression(X, y):
     """
     st.subheader("📈 Linear Regression Results")
 
-    # Convert data to numeric, drop rows with NaN values
     X = X.apply(pd.to_numeric, errors='coerce')
     y = pd.to_numeric(y, errors='coerce')
     data = pd.concat([X, y], axis=1).dropna()
     X = data.drop(y.name, axis=1)
     y = data[y.name]
 
-    # Add constant term for intercept using imported add_constant
     X = add_constant(X)
-
-    # Fit OLS model directly
     model = OLS(y, X).fit()
     predictions = model.predict(X)
 
-    # Display regression summary
     st.write("**Regression Summary:**")
     st.text(model.summary())
 
-    # Extract R-squared
-    r_squared = model.rsquared
-
-    # Create DataFrame for coefficients
     coef_df = pd.DataFrame({
         'Variable': model.params.index,
         'Coefficient': model.params.values,
         'Std. Error': model.bse.values,
         'P-Value': model.pvalues.values
     })
-
     st.write("**Coefficients:**")
     st.dataframe(coef_df)
 
-    st.write(f"**Coefficient of Determination (R-squared):** {r_squared:.4f}")
+    r2 = model.rsquared
+    st.write(f"**Coefficient of Determination (R-squared):** {r2:.4f}")
 
-    # Plot Actual vs Predicted
     fig = px.scatter(
         x=y,
         y=predictions,
@@ -238,23 +249,16 @@ def run_linear_regression(X, y):
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Interpretation in layman's terms
     st.markdown("### 🔍 **Key Insights:**")
     st.markdown(f"""
-    - **R-squared:** The model explains **{r_squared:.2%}** of the variance in the target variable.
+    - **R-squared:** The model explains **{r2:.2%}** of the variance in the target variable.
     - **Coefficients:** 
         - **Positive Coefficients:** Indicate a direct relationship with the target variable.
         - **Negative Coefficients:** Indicate an inverse relationship with the target variable.
     - **Statistical Significance:** Variables with p-values < 0.05 are considered significant.
     """)
 
-    # Provide download link for model results
-    st.markdown("### 💾 **Download Model Results**")
-    results_df = pd.DataFrame({
-        'Actual': y,
-        'Predicted': predictions,
-        'Residual': y - predictions
-    })
+    results_df = pd.DataFrame({'Actual': y, 'Predicted': predictions, 'Residual': y - predictions})
     download_data = results_df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="Download Results as CSV",
@@ -266,9 +270,10 @@ def run_linear_regression(X, y):
 def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
+    Outputs a rank-ordered list of account adoption in 2025 based on selected variables.
     """
     st.subheader("⚡ LightGBM Regression Results")
-    st.markdown("**⚠️ Note:** Training may take a few minutes. Please do not refresh.")
+    st.markdown("**⚠️ Note:** Training may take a few minutes. Do not refresh the page.")
 
     X = X.replace([np.inf, -np.inf], np.nan).dropna()
     y = y.loc[X.index]
@@ -292,28 +297,40 @@ def run_lightgbm(X, y):
             'colsample_bytree': [0.8, 1.0],
         }
         lgbm = lgb.LGBMRegressor(random_state=42, n_jobs=-1)
-        search = RandomizedSearchCV(lgbm, param_grid, n_iter=10, cv=3,
-                                    scoring='neg_mean_squared_error',
-                                    random_state=42, n_jobs=-1, verbose=1)
-        with st.spinner("🔄 Tuning..."):
+        randomized_search = RandomizedSearchCV(
+            estimator=lgbm,
+            param_distributions=param_grid,
+            n_iter=10,
+            cv=3,
+            scoring='neg_mean_squared_error',
+            random_state=42,
+            n_jobs=-1,
+            verbose=1
+        )
+        with st.spinner("🔄 Performing Hyperparameter Tuning..."):
             try:
-                search.fit(X_train, y_train)
-                best_lgbm = search.best_estimator_
-                st.write(f"**Best Params:** {search.best_params_}")
+                randomized_search.fit(X_train, y_train)
+                best_lgbm = randomized_search.best_estimator_
+                st.write(f"**Best Parameters:** {randomized_search.best_params_}")
             except Exception as e:
                 st.error(f"❌ Tuning error: {e}")
                 return
         cv_scores = cross_val_score(best_lgbm, X_train, y_train, cv=3,
                                     scoring='neg_mean_squared_error', n_jobs=-1)
-        mse, std = -cv_scores.mean(), cv_scores.std()
-        st.write(f"**CV MSE:** {mse:.2f} ± {std:.2f}")
+        mse_val, std_val = -cv_scores.mean(), cv_scores.std()
+        st.write(f"**Cross-Validated MSE:** {mse_val:.2f} ± {std_val:.2f}")
     else:
         best_lgbm = lgb.LGBMRegressor(
-            num_leaves=31, max_depth=10, learning_rate=0.05,
-            n_estimators=100, subsample=0.8, colsample_bytree=0.8,
-            random_state=42, n_jobs=-1
+            num_leaves=31,
+            max_depth=10,
+            learning_rate=0.05,
+            n_estimators=100,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            n_jobs=-1
         )
-        with st.spinner("⚙️ Training..."):
+        with st.spinner("⚙️ Training LightGBM model with default parameters..."):
             try:
                 best_lgbm.fit(X_train, y_train)
                 st.success("Model trained successfully!")
@@ -327,14 +344,12 @@ def run_lightgbm(X, y):
         st.error(f"❌ Prediction error: {e}")
         return
 
-    # Metrics
     mse_val = mean_squared_error(y_test, preds)
     mae_val = mean_absolute_error(y_test, preds)
     r2_val = r2_score(y_test, preds)
     st.write(f"**MSE:** {mse_val:.2f} | **MAE:** {mae_val:.2f} | **R²:** {r2_val:.4f}")
 
-    # Rank-Ordered List
-    st.markdown("### 📋 **Rank-Ordered List**")
+    st.markdown("### 📋 **Rank-Ordered List of Account Adoption in 2025**")
     if 'acct_numb' in st.session_state.df.columns and 'acct_name' in st.session_state.df.columns:
         idx = X_test.index
         accounts = st.session_state.df.loc[idx, ['acct_numb', 'acct_name']].reset_index(drop=True)
@@ -350,10 +365,6 @@ def run_lightgbm(X, y):
         })
     df_sorted = df_preds.sort_values(by=df_preds.columns[-1], ascending=False).reset_index(drop=True)
     df_sorted['Rank'] = df_sorted.index + 1
-    if 'acct_numb' in df_sorted.columns:
-        df_display = df_sorted[['Rank', 'acct_numb', 'acct_name', 'Predicted_Adoption_2025']]
-    else:
-        df_display = df_sorted[['Rank', 'Account_Index', 'Predicted_Adoption_2025']]
 
     def highlight_top(row):
         if row['Rank'] == 1: return ['background-color: gold']*len(row)
@@ -361,25 +372,26 @@ def run_lightgbm(X, y):
         if row['Rank'] == 3: return ['background-color: #cd7f32']*len(row)
         return ['']*len(row)
 
-    st.dataframe(df_display.style.apply(highlight_top, axis=1), use_container_width=True)
+    st.dataframe(df_sorted.style.apply(highlight_top, axis=1), use_container_width=True)
 
-    # SHAP Explainability
     try:
-        st.markdown("### 🧠 **SHAP Explainability**")
+        st.markdown("### 🧠 **Model Explainability with SHAP**")
         explainer = shap.TreeExplainer(best_lgbm)
         shap_values = explainer.shap_values(X_test)
-        fig = plt.figure(figsize=(10,6))
+        fig_summary = plt.figure(figsize=(10, 6))
         shap.summary_plot(shap_values, X_test, plot_type="bar", show=False)
-        st.pyplot(fig, use_container_width=True)
+        st.pyplot(fig_summary, use_container_width=True)
         plt.clf()
     except Exception as e:
         st.warning(f"⚠️ SHAP error: {e}")
 
-    # Download ranked list
-    csv_out = df_display.to_csv(index=False).encode('utf-8')
-    st.download_button("Download Ranked List CSV", data=csv_out,
-                       file_name='lightgbm_ranked_adoption_2025.csv',
-                       mime='text/csv')
+    download_data = df_sorted.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Ranked Adoption List as CSV",
+        data=download_data,
+        file_name='lightgbm_ranked_adoption_2025.csv',
+        mime='text/csv'
+    )
 
 def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     """
@@ -403,10 +415,10 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
     df_encoded['Adopter_Category'] = pd.qcut(df_encoded['Rank'], q=3, labels=['Early Adopter','Middle Adopter','Late Adopter'])
     emojis = {'Early Adopter':'🚀','Middle Adopter':'⏳','Late Adopter':'🐢'}
 
-    st.markdown("### 🏆 **Leaderboard**")
-    top_n = st.slider("Top N accounts", 5, 50, 10, 1)
+    st.markdown("### 🏆 **Leaderboard of Accounts**")
+    top_n = st.slider("Select number of top accounts to display", 5, 50, 10, 1)
     cols = ['acct_numb','acct_name','Weighted_Score','Rank','Adopter_Category', target_column]
-    if all(c in df_encoded.columns for c in ['acct_numb','acct_name']): 
+    if all(c in df_encoded.columns for c in ['acct_numb','acct_name']):
         top = df_encoded[cols].nlargest(top_n,'Weighted_Score')
     else:
         top = df_encoded[['Weighted_Score','Rank','Adopter_Category',target_column]].nlargest(top_n,'Weighted_Score').reset_index(drop=True)
@@ -431,122 +443,236 @@ def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
                        file_name='weighted_scoring_model_results.csv',
                        mime='text/csv')
 
-# Demo Tab Placeholder
+# Demo Tab Placeholder Function
 def run_demo():
+    """
+    Placeholder for the Demo tab. Future implementation can include video uploads or demonstrations.
+    """
     st.title("🎥 Demo")
-    st.markdown("### **Coming Soon!** Stay tuned for a demonstration.")
+    st.markdown("""
+    ### **Coming Soon!**
 
-# Render sidebar and main logic
+    Stay tuned for a comprehensive demonstration of the **💊 Behavior Prediction Platform 💊**.
+    """)
+
+# Render the sidebar with step highlighting and Demo tab
 render_sidebar()
+
+# Main app logic based on current step
 if st.session_state.step == 0:
     st.title("💊 Behavior Prediction Platform 💊")
     st.markdown("""
     ### **Unlock Insights, Predict Outcomes, and Make Informed Decisions!**
-    1. Upload data
-    2. Select variables
-    3. Choose model
-    4. View results
+    1. Upload Your Data
+    2. Select Variables
+    3. Choose Model
+    4. View Results
     """)
+
 elif st.session_state.step == 1:
     st.title("💊 Behavior Prediction Platform 💊")
     st.subheader("Step 1: Upload Your CSV/Excel File")
+
+    # Provide the download button for the CSV template
     st.download_button(
-        label="Download CSV Template 📄",
+        label="Need a template? Download the CSV Here 📄",
         data=pd.DataFrame({
-            'acct_numb':['123','456','789'],
-            'acct_name':['A','B','C']
+            'acct_numb': ['123', '456', '789'],
+            'acct_name': ['Account A', 'Account B', 'Account C'],
+            'ProdA_sales_first12': [10000, 15000, 12000],
+            'ProdA_units_first12': [100, 150, 120],
+            'competition_sales_first12': [5000, 6000, 5500],
+            'competition_units_first12': [50, 60, 55],
+            'ProdA_sales_2022': [20000, 25000, 22000],
+            'ProdA_units_2022': [200, 250, 220],
+            'competition_sales_2022': [10000, 11000, 10500],
+            'competition_units_2022': [100, 110, 105],
+            'ProdA_sales_2023': [30000, 35000, 32000],
+            'ProdA_units_2023': [300, 350, 320],
+            'competition_sales_2023': [15000, 16000, 15500],
+            'competition_units_2023': [150, 160, 155],
+            'analog_1_adopt': ['low', 'medium', 'high'],
+            'analog_2_adopt': ['medium', 'low', 'high'],
+            'analog_3_adopt': ['high', 'medium', 'low'],
+            'quintile_ProdA_totalsales': [1, 2, 1],
+            'quintile_ProdB_opportunity': [3, 4, 5],
+            'ability_to_influence': [0.7, 0.8, 0.75],
+            'percentage_340B_adoption': [0.2, 0.3, 0.25]
         }).to_csv(index=False),
         file_name='csv_template.csv',
         mime='text/csv'
     )
-    uploaded_file = st.file_uploader("Choose your CSV or Excel file:", type=["csv","xlsx"])
-    if uploaded_file:
+
+    uploaded_file = st.file_uploader(
+        "Choose your CSV or Excel file:", type=["csv", "xlsx"]
+    )
+
+    if uploaded_file is not None:
         try:
-            if uploaded_file.type.endswith("sheet"):
+            file_type = uploaded_file.type
+
+            # First read to detect header row
+            if file_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
                 excel = pd.ExcelFile(uploaded_file)
                 sheets = excel.sheet_names
-                sheet = sheets[0] if len(sheets)==1 else st.selectbox("Select sheet:", sheets)
-                df = pd.read_excel(uploaded_file, sheet_name=sheet, header=None)
+                df_preview = pd.read_excel(uploaded_file, sheet_name=sheets[0], header=None)
             else:
-                df = pd.read_csv(uploaded_file, header=None)
-            st.dataframe(df.head())
-            possible = [i for i,row in df.iterrows() if row.apply(lambda x: isinstance(x,str)).sum()/len(row)>0.7]
-            if len(possible)==1:
-                hr = possible[0]; st.session_state.header_row=hr; st.success(f"Header at {hr}")
-            elif possible:
-                hr = st.selectbox("Select header row:", possible); st.session_state.header_row=hr
+                df_preview = pd.read_csv(uploaded_file, header=None)
+
+            st.markdown("### 📊 **Preview of Uploaded Data:**")
+            st.dataframe(df_preview.head())
+
+            # Detect possible header rows
+            possible_header_rows = []
+            for idx, row in df_preview.iterrows():
+                text_count = row.apply(lambda x: isinstance(x, str)).sum()
+                if len(row) and (text_count / len(row)) > 0.7:
+                    possible_header_rows.append(idx)
+
+            if possible_header_rows:
+                if len(possible_header_rows) == 1:
+                    header_row = possible_header_rows[0]
+                    st.session_state.header_row = header_row
+                    st.success(f"✅ Automatically detected header row at index **{header_row}**.")
+                else:
+                    header_row = st.selectbox(
+                        "Multiple header rows detected. Please select the correct header row:",
+                        options=possible_header_rows,
+                        key='header_row_selection'
+                    )
+                    st.session_state.header_row = header_row
+                    st.success(f"✅ You have selected header row at index **{header_row}**.")
             else:
-                hr = st.number_input("Enter header row:", 0, len(df)-1, 0); st.session_state.header_row=hr
-            df = pd.read_csv(uploaded_file, header=st.session_state.header_row) if not uploaded_file.type.endswith("sheet") else pd.read_excel(uploaded_file, sheet_name=sheet, header=st.session_state.header_row)
+                header_row = st.number_input(
+                    "No header row detected. Please enter the row number (0-indexed) that contains the account names:",
+                    min_value=0,
+                    max_value=len(df_preview)-1,
+                    value=0,
+                    step=1,
+                    key='manual_header_row'
+                )
+                st.session_state.header_row = header_row
+                st.info(f"⚠️ You have specified header row at index **{header_row}**.")
+
+            # **Fix: rewind before second read**
+            uploaded_file.seek(0)
+
+            # Now read with the true header row
+            if file_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                selected_sheet = sheets[0] if len(sheets)==1 else st.session_state.sheet_selection
+                df = pd.read_excel(
+                    uploaded_file,
+                    sheet_name=selected_sheet,
+                    header=st.session_state.header_row
+                )
+            else:
+                df = pd.read_csv(
+                    uploaded_file,
+                    header=st.session_state.header_row
+                )
+
+            # Generate rank and store
             df = generate_account_adoption_rank(df)
             st.session_state.df = df
-            st.success("File uploaded and rank generated!")
+            st.success("✅ File uploaded and 'Account Adoption Rank Order' generated successfully!")
+            st.markdown("### 📊 **Preview of Processed Data:**")
+            st.dataframe(df.head())
+
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"❌ An error occurred while processing the file: {e}")
+
 elif st.session_state.step == 2:
     st.title("💊 Behavior Prediction Platform 💊")
     df = st.session_state.df
     if df is None:
-        st.warning("Please upload a file first.")
+        st.warning("⚠️ No data found. Please go back to Step 1 and upload your file.")
     else:
         st.subheader("Step 2: Select Independent Variables")
-        id_cols = ['acct_numb','acct_name']
-        features = [c for c in df.columns if c not in id_cols]
-        sel = st.multiselect("Choose features:", features, default=features[:3])
-        if sel:
-            st.session_state.selected_features = sel
-            st.success(f"Selected {len(sel)} features.")
+        identifier_columns = ['acct_numb', 'acct_name']
+        possible_features = [col for col in df.columns if col not in identifier_columns]
+        selected = st.multiselect(
+            "Choose your independent variables (features):",
+            options=possible_features,
+            default=possible_features[:3],
+            key='feature_selection'
+        )
+        if selected:
+            st.session_state.selected_features = selected
+            st.success(f"✅ You have selected {len(selected)} independent variables.")
+
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
     sel = st.session_state.selected_features
     if not sel:
-        st.warning("Select features first.")
+        st.warning("⚠️ Please select features first.")
     else:
         st.subheader("Step 3: Choose Model & Assign Weights")
-        st.markdown("**Optimal Data:** Linear:10-100 rows, LightGBM:≥200 rows")
-        c1,c2,c3 = st.columns(3)
-        if c1.button("Run Linear Regression"): select_linear_regression()
-        if c2.button("Run Weighted Scoring"): select_weighted_scoring()
-        if c3.button("Run LightGBM"): select_lightgbm()
+        st.markdown("**Optimal Data Rows:** Linear 10–100, LightGBM ≥200")
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("Run Linear Regression", key='model_lr'):
+                select_linear_regression()
+        with c2:
+            if st.button("Run Weighted Scoring", key='model_ws'):
+                select_weighted_scoring()
+        with c3:
+            if st.button("Run LightGBM", key='model_lgb'):
+                select_lightgbm()
+
         if st.session_state.selected_model in ['linear_regression','lightgbm']:
-            st.info("Select dependent variable:")
-            targets = [c for c in st.session_state.df.columns if c not in ['acct_numb','acct_name']+sel]
-            tgt = st.selectbox("Dependent variable:", targets)
+            st.info("Select your dependent variable:")
+            targets = [c for c in df.columns if c not in ['acct_numb','acct_name']+sel]
+            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
             if tgt:
-                st.session_state.target_column = tgt; st.success(f"Target: {tgt}")
-        elif st.session_state.selected_model=='weighted_scoring_model':
-            st.info("Assign weights (sum 10):")
-            weights = {}
-            for f in sel:
-                w = st.number_input(f"Weight for {f}:", 0.0, 10.0, 0.0, 0.5, key=f"w_{f}")
-                weights[f]=w
-            total = sum(weights.values())
-            st.markdown(f"Total weight: {total}")
-            if total!=10 and total>0:
-                norm = {f: w/total*10 for f,w in weights.items()}
+                st.session_state.target_column = tgt
+                st.success(f"✅ You have selected **{tgt}** as your dependent variable.")
+        elif st.session_state.selected_model == 'weighted_scoring_model':
+            st.info("Assign weights (sum must equal 10):")
+            feature_weights = {}
+            for feature in sel:
+                w = st.number_input(f"Weight for **{feature}**:", 0.0, 10.0, 0.0, 0.5, key=f"weight_{feature}")
+                feature_weights[feature] = w
+            total_weight = sum(feature_weights.values())
+            st.markdown(f"**Total weight:** {total_weight}")
+            if total_weight > 0:
+                normalized = {f: (w/total_weight)*10 for f,w in feature_weights.items()}
             else:
-                norm = weights
-            if norm:
-                st.session_state.normalized_weights = norm
-                st.dataframe(pd.DataFrame({'Feature':list(norm), 'Weight':[round(x,2) for x in norm.values()]}))
+                normalized = {}
+            if normalized:
+                st.session_state.normalized_weights = normalized
+                st.dataframe(pd.DataFrame({
+                    'Feature': list(normalized.keys()),
+                    'Weight': [round(v,2) for v in normalized.values()]
+                }))
+
 elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     model = st.session_state.selected_model
-    if model=='linear_regression':
+    if model == 'linear_regression':
         run_linear_regression(st.session_state.X, st.session_state.y)
-    elif model=='lightgbm':
+    elif model == 'lightgbm':
         run_lightgbm(st.session_state.X, st.session_state.y)
-    elif model=='weighted_scoring_model':
-        run_weighted_scoring_model(st.session_state.df, st.session_state.normalized_weights, 'Account Adoption Rank Order', categorical_mappings)
-    c1,c2 = st.columns(2)
-    c1.button("← Back to Step 3", on_click=reset_to_step_3)
-    c2.button("🔄 Restart", on_click=reset_app)
+    elif model == 'weighted_scoring_model':
+        run_weighted_scoring_model(
+            st.session_state.df,
+            st.session_state.normalized_weights,
+            'Account Adoption Rank Order',
+            categorical_mappings
+        )
+    c1, c2 = st.columns(2)
+    with c1:
+        st.button("← Back to Step 3", on_click=reset_to_step_3)
+    with c2:
+        st.button("🔄 Restart", on_click=reset_app)
+
 elif st.session_state.step == 5:
     run_demo()
 
+# Bottom navigation
 if st.session_state.step < 5:
-    b1,b2 = st.columns([1,1])
-    if st.session_state.step>0:
-        b1.button("← Back", on_click=prev_step)
-    b2.button("Next →", on_click=next_step)
-
+    b1, b2 = st.columns([1,1])
+    with b1:
+        if st.session_state.step > 0:
+            st.button("← Back", on_click=prev_step)
+    with b2:
+        st.button("Next →", on_click=next_step)
