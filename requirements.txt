@@ -8,3 +8,5 @@ scikit-learn
 lightgbm
 shap
 openpyxl
+scipy==1.10.1
+shap==0.41.0
