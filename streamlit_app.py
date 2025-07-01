@@ -67,20 +67,7 @@ def next_step():
             st.error("⚠️ Please select at least one independent variable before proceeding.")
         else:
             st.session_state.step += 1
-    elif st.session_state.step == 3:
-        if st.session_state.selected_model is None:
-            st.error("⚠️ Please select a model before proceeding.")
-            return
-        if st.session_state.selected_model in ['linear_regression', 'lightgbm']:
-            if not st.session_state.target_column:
-                st.error("⚠️ Please select a dependent variable before proceeding.")
-                return
-            st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
-            st.session_state.y = preprocess_data_with_target_cached(st.session_state.df, st.session_state.target_column, st.session_state.X)
-        elif st.session_state.selected_model == 'weighted_scoring_model':
-            st.session_state.X = preprocess_data_cached(st.session_state.df, st.session_state.selected_features)
-        st.session_state.step += 1
-    elif st.session_state.step < 5:
+    elif st.session_state.step == 3:        st.title("ðŸ’Š Behavior Prediction Platform ðŸ’Š")        df = st.session_state.df         else:            st.subheader("Step 3: Choose Model & Assign Weights")            st.markdown("**Optimal Data Rows:** Linear 10â€“100, LightGBM â‰¥200")            col1, col2, col3 = st.columns(3)            with col1:                if st.button("Run Linear Regression", key='model_linear_regression'):                    select_linear_regression()            with col2:                if st.button("Run Weighted Scoring", key='model_weighted_scoring'):                    select_weighted_scoring()            with col3:                if st.button("Run LightGBM", key='model_lightgbm'):                    select_lightgbm()            if st.session_state.selected_model in ['linear_regression', 'lightgbm']:                st.info("Select your dependent variable:")                targets = [c for c in df.columns if c not in ['acct_numb','acct_name'] + sel]                tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')                if tgt:                    st.session_state.target_column = tgt                    st.success(f"âœ… You have selected **tgt** as your dependent variable.")            elif st.session_state.selected_model == 'weighted_scoring_model':                st.info("Assign weights (sum must equal 10):")                feature_weights =                 for feature in sel:                    w = st.number_input(f"Weight for **feature**:", 0.0, 10.0, 0.0, 0.5, key=f"weight_feature")    elif st.session_state.step < 5:
         st.session_state.step += 1
 
 # Function to go back to the previous step
@@ -603,7 +590,7 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
     sel = st.session_state.selected_features
-    df = st.session_state.df  # ensure df in scope    sel = st.session_state.selected_features  # current features    if not sel:
+    if not sel:
         st.warning("⚠️ Please select features first.")
     else:
         st.subheader("Step 3: Choose Model & Assign Weights")
@@ -621,7 +608,8 @@ elif st.session_state.step == 3:
 
         if st.session_state.selected_model in ['linear_regression','lightgbm']:
             st.info("Select your dependent variable:")
-            targets = [c for c in df.columns if c not in ['acct_numb','acct_name'] + sel]            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
+            targets = [c for c in df.columns if c not in ['acct_numb','acct_name']+sel]
+            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
             if tgt:
                 st.session_state.target_column = tgt
                 st.success(f"✅ You have selected **{tgt}** as your dependent variable.")
