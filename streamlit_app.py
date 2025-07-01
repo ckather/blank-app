@@ -603,7 +603,7 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
     sel = st.session_state.selected_features
-    if not sel:
+    df = st.session_state.df  # ensure df in scope    sel = st.session_state.selected_features  # current features    if not sel:
         st.warning("⚠️ Please select features first.")
     else:
         st.subheader("Step 3: Choose Model & Assign Weights")
@@ -621,8 +621,7 @@ elif st.session_state.step == 3:
 
         if st.session_state.selected_model in ['linear_regression','lightgbm']:
             st.info("Select your dependent variable:")
-            targets = [c for c in df.columns if c not in ['acct_numb','acct_name']+sel]
-            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
+            targets = [c for c in df.columns if c not in ['acct_numb','acct_name'] + sel]            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
             if tgt:
                 st.session_state.target_column = tgt
                 st.success(f"✅ You have selected **{tgt}** as your dependent variable.")
