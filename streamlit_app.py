@@ -56,6 +56,9 @@ def reset_app():
 def reset_to_step_3():
     st.session_state.step = 3
 
+render_sidebar()
+
+
 # Function to advance to the next step
 def next_step():
     if st.session_state.step == 0:
