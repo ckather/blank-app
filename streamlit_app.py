@@ -603,6 +603,7 @@ elif st.session_state.step == 2:
 elif st.session_state.step == 3:
     st.title("💊 Behavior Prediction Platform 💊")
     sel = st.session_state.selected_features
+    df = st.session_state.df  # ✅ This line fixes the NameError
     if not sel:
         st.warning("⚠️ Please select features first.")
     else:
