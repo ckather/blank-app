@@ -196,7 +196,65 @@ def render_sidebar():
 # Model Functions
 # -------------------------------------------------------------------------------
 
-def run_linear_regression(X, y):    """    Trains and evaluates a Linear Regression model using statsmodels.    """    st.subheader("ðŸ“ˆ Linear Regression Results")    # Ensure X and y are numeric and aligned    X = X.apply(pd.to_numeric, errors='coerce')    y = pd.to_numeric(y, errors='coerce')    data = pd.concat([X, y], axis=1).dropna()    X = data.drop(y.name, axis=1)    y = data[y.name]    # Add intercept    X = add_constant(X)    # Fit model    model = OLS(y, X).fit()    predictions = model.predict(X)    # Display summary    st.write("**Regression Summary:**")    st.text(model.summary())    # Show coefficients    coef_df = pd.DataFrame(        'Variable': model.params.index,        'Coefficient': model.params.values,        'Std. Error': model.bse.values,        'P-Value': model.pvalues.values    )    st.write("**Coefficients:**")    st.dataframe(coef_df)    # R-squared    r2 = model.rsquared    st.write(f"**RÂ²:** r2:.4f")    # Plot actual vs predicted    fig = px.scatter(        x=y, y=predictions,        labels='x':'Actual', 'y':'Predicted',        title=f'Actual vs Predicted (y.name)'    )    fig.update_traces(mode='markers')    st.plotly_chart(fig, use_container_width=True)    # Provide download    results_df = pd.DataFrame('Actual': y, 'Predicted': predictions, 'Residual': y - predictions)    csv = results_df.to_csv(index=False).encode('utf-8')    st.download_button(        "Download Results as CSV", csv,        file_name='linear_regression_results.csv', mime='text/csv'    )def run_lightgbm(X, y):
+def run_linear_regression(X, y):
+    """
+    Trains and evaluates a Linear Regression model using statsmodels.
+    """
+    st.subheader("📈 Linear Regression Results")
+
+    X = X.apply(pd.to_numeric, errors='coerce')
+    y = pd.to_numeric(y, errors='coerce')
+    data = pd.concat([X, y], axis=1).dropna()
+    X = data.drop(y.name, axis=1)
+    y = data[y.name]
+
+    X = add_constant(X)
+    model = OLS(y, X).fit()
+    predictions = model.predict(X)
+
+    st.write("**Regression Summary:**")
+    st.text(model.summary())
+
+    coef_df = pd.DataFrame({
+        'Variable': model.params.index,
+        'Coefficient': model.params.values,
+        'Std. Error': model.bse.values,
+        'P-Value': model.pvalues.values
+    })
+    st.write("**Coefficients:**")
+    st.dataframe(coef_df)
+
+    r2 = model.rsquared
+    st.write(f"**Coefficient of Determination (R-squared):** {r2:.4f}")
+
+    fig = px.scatter(
+        x=y,
+        y=predictions,
+        labels={'x': 'Actual', 'y': 'Predicted'},
+        title=f'Actual vs. Predicted {y.name}',
+        trendline="ols"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("### 🔍 **Key Insights:**")
+    st.markdown(f"""
+    - **R-squared:** The model explains **{r2:.2%}** of the variance in the target variable.
+    - **Coefficients:** 
+        - **Positive Coefficients:** Indicate a direct relationship with the target variable.
+        - **Negative Coefficients:** Indicate an inverse relationship with the target variable.
+    - **Statistical Significance:** Variables with p-values < 0.05 are considered significant.
+    """)
+
+    results_df = pd.DataFrame({'Actual': y, 'Predicted': predictions, 'Residual': y - predictions})
+    download_data = results_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Results as CSV",
+        data=download_data,
+        file_name='linear_regression_results.csv',
+        mime='text/csv'
+    )
+
+def run_lightgbm(X, y):
     """
     Trains and evaluates a LightGBM Regressor.
     Outputs a rank-ordered list of account adoption in 2025 based on selected variables.
@@ -529,52 +587,7 @@ elif st.session_state.step == 2:
             st.session_state.selected_features = selected
             st.success(f"✅ You have selected {len(selected)} independent variables.")
 
-elif st.session_state.step == 3:
-    st.title("💊 Behavior Prediction Platform 💊")
-    sel = st.session_state.selected_features
-    if not sel:
-        st.warning("⚠️ Please select features first.")
-    else:
-        st.subheader("Step 3: Choose Model & Assign Weights")
-        st.markdown("**Optimal Data Rows:** Linear 10–100, LightGBM ≥200")
-        c1, c2, c3 = st.columns(3)
-        with c1:
-            if st.button("Run Linear Regression", key='model_lr'):
-                select_linear_regression()
-        with c2:
-            if st.button("Run Weighted Scoring", key='model_ws'):
-                select_weighted_scoring()
-        with c3:
-            if st.button("Run LightGBM", key='model_lgb'):
-                select_lightgbm()
-
-        if st.session_state.selected_model in ['linear_regression','lightgbm']:
-            st.info("Select your dependent variable:")
-            targets = [c for c in df.columns if c not in ['acct_numb','acct_name']+sel]
-            tgt = st.selectbox("Choose dependent variable:", options=targets, key='target_variable_selection')
-            if tgt:
-                st.session_state.target_column = tgt
-                st.success(f"✅ You have selected **{tgt}** as your dependent variable.")
-        elif st.session_state.selected_model == 'weighted_scoring_model':
-            st.info("Assign weights (sum must equal 10):")
-            feature_weights = {}
-            for feature in sel:
-                w = st.number_input(f"Weight for **{feature}**:", 0.0, 10.0, 0.0, 0.5, key=f"weight_{feature}")
-                feature_weights[feature] = w
-            total_weight = sum(feature_weights.values())
-            st.markdown(f"**Total weight:** {total_weight}")
-            if total_weight > 0:
-                normalized = {f: (w/total_weight)*10 for f,w in feature_weights.items()}
-            else:
-                normalized = {}
-            if normalized:
-                st.session_state.normalized_weights = normalized
-                st.dataframe(pd.DataFrame({
-                    'Feature': list(normalized.keys()),
-                    'Weight': [round(v,2) for v in normalized.values()]
-                }))
-
-elif st.session_state.step == 4:
+elif st.session_state.step == 3:    st.title("ðŸ’Š Behavior Prediction Platform ðŸ’Š")    df = st.session_state.df    sel = st.sader("Step 3: Choose Model & Assign Weights")        st.markdown("**Optimal Data Rows:** Linear 10â€“100, LightGBM â‰¥200")        col1, col2, col3 = st.columns(3)        with col1:            if st.button("Run Linear Regression", key='model_linear'):                select_linear_regression()        with col2:            if st.button("Run Weighted Scoring", key='model_weighted'):                select_weighted_scoring()        with col3:            if st.button("Run LightGBM", key='model_lightgbm'):                select_lightgbm()        # For regression models, select dependent variable        if st.session_state.selected_model in ['linear_regression', 'lightgbm']:            st.info("Select your dependent variable:")            targets = [c for c in df.columns if c not in ['acct_numb', 'acct_name'] + sel]            tgt = st.selectbox(                "Choose dependent variable:",                options=targets,                key='target_variable_selection'            )            if tgt:                st.session_state.target_column = tgt                st.success(f"âœ… You have selected **tgt** as your dependent variable.")        # For weighted scoring, assign feature weights        elif st.session_state.selected_model == 'weighted_scoring_model':            st.info("Assign weights to features (sum must equal 10):")            feature_weights =             for feature in sel:                w = st.number_input(                    f"Weight for **feature**:",                    min_value=0.0,                    max_value=10.0,                    value=0.0,                    step=0.5,                    key=f"weight_feature"                )                feature_weights[feature] = w            total_weight = sum(feature_weights.values())            st.markdown(f"**Total weight:** total_weightomatically.")                normalized_weights = f: (w/total_weight)*10 for f, w in feature_weights.items()            else:                normalized_weights = feature_weights            st.session_state.normalized_weights = normalized_weights            # Display normalized weights            if normalized_weights:                df_norm = pd.DataFrame(                    'Feature': list(normalized_weights.keys()),                    'Weight': [round(v,2) for v in normalized_weights.values()]                )                st.write("**Normalized Weights:**")                st.dataframe(df_norm)elif st.session_state.step == 4:
     st.title("💊 Behavior Prediction Platform 💊")
     model = st.session_state.selected_model
     if model == 'linear_regression':
