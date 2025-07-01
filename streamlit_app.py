@@ -201,6 +201,23 @@ def render_sidebar():
     st.sidebar.markdown("---")
     st.sidebar.button("🔄 Restart", on_click=reset_app, key='restart_sidebar')
 
+# --------------------------------------------------------
+# MODEL FUNCTIONS — MUST BE DEFINED BEFORE THEY'RE CALLED
+# --------------------------------------------------------
+
+def run_linear_regression(X, y):
+    st.subheader("📈 Linear Regression Results")
+    st.write("This is a placeholder. Replace with full linear regression logic.")
+
+def run_lightgbm(X, y):
+    st.subheader("⚡ LightGBM Regression Results")
+    st.write("This is a placeholder. Replace with full LightGBM logic.")
+
+def run_weighted_scoring_model(df, normalized_weights, target_column, mappings):
+    st.subheader("⚖️ Weighted Scoring Model Results")
+    st.write("This is a placeholder. Replace with full weighted scoring logic.")
+
+
 # Step 0: Introduction screen
 if st.session_state.step == 0:
     st.title("💊 Behavior Prediction Platform 💊")
